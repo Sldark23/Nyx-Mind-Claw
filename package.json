@@ -1,0 +1,17 @@
+{
+  "name": "nyxmind-claw",
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "description": "Open-source multi-platform AI agent framework",
+  "workspaces": ["packages/*"],
+  "bin": {
+    "nyxmind": "packages/cli/dist/index.js"
+  },
+  "scripts": {
+    "build": "npm run build -ws",
+    "dev": "npm run dev -ws",
+    "lint": "npm run lint -ws",
+    "test": "npm run test -ws"
+  }
+}
