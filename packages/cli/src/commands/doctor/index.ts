@@ -1,0 +1,1 @@
+export { registerDoctorCommand } from './register';
