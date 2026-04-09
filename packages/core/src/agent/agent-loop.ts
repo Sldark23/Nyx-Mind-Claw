@@ -44,22 +44,24 @@ export class AgentLoop {
    */
   async run(userInput: string, context?: string): Promise<string> {
     const messages = this.buildMessages(userInput, context);
+    return this.runWithMessages(messages);
+  }
 
+  /**
+   * Run the loop with a pre-built message array.
+   * Useful for sub-agents or testing.
+   */
+  async runWithMessages(messages: ChatMessage[]): Promise<string> {
     for (let iter = 1; iter <= this.maxIterations; iter++) {
       this.onIteration?.(iter, messages);
 
-      // 1. Call LLM
       const thought: string = await this.llmCall.chat(messages);
-
-      // 2. Parse tool call
       const toolCall = this.parser.parse(thought);
 
       if (!toolCall) {
-        // No tool detected — return as final response
         return thought;
       }
 
-      // 3. Execute tool
       let output: string;
       try {
         output = await this.executor.execute(toolCall);
@@ -67,7 +69,6 @@ export class AgentLoop {
         output = `Tool error: ${err instanceof Error ? err.message : String(err)}`;
       }
 
-      // 4. Append to message history and loop
       messages.push({ role: 'assistant', content: thought });
       messages.push({ role: 'tool', content: output });
     }
