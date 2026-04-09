@@ -1,85 +1,88 @@
+/**
+ * Update command — works on every OS:
+ * - git pull (if git repo + git available)
+ * - tar.gz download + extract (all Unix/macOS)
+ * - zip download + extract (Windows fallback)
+ */
 import { Command } from 'commander';
+import fs from 'fs';
+import { execSync } from 'child_process';
 import { getOriginUrl, isFork, getCurrentBranch, gitFetch, gitPull } from './git';
-import { updateViaZip } from './zip';
+import { updateViaTarball, updateViaZip } from './archive';
 
-const PROJECT_ROOT = process.cwd();
+const ROOT = process.cwd();
 
-function c(msg: string) {
-  process.stdout.write(msg + '\n');
-}
+function say(msg: string) { process.stdout.write(msg + '\n'); }
+function ok(msg: string) { say('✅ ' + msg); }
+function warn(msg: string) { say('⚠ ' + msg); }
+function fail(msg: string) { say('❌ ' + msg); process.exit(1); }
 
-function info(msg: string) { c('  ' + msg); }
-function warn(msg: string) { c('⚠ ' + msg); }
-function ok(msg: string) { c('✅ ' + msg); }
-function fail(msg: string) { c('❌ ' + msg); }
+async function runUpdate() {
+  const platform = process.platform; // linux/darwin/win32
 
-async function cmdUpdate(_args: unknown) {
-  const isWin32 = process.platform === 'win32';
+  say('\n🔄 NyxMindClaw Update\n');
 
-  c('\n🔄 NyxMindClaw Update\n');
-
-  // Check git
-  const gitDir = PROJECT_ROOT + '/.git';
-  if (!require('fs').existsSync(gitDir)) {
-    if (isWin32) {
-      await updateViaZip();
-      return;
-    }
-    fail('Not a git repository. Please reinstall.');
-    c('  curl -fsSL https://raw.githubusercontent.com/Sldark23/Nyx-Mind-Claw/main/scripts/install.sh | bash');
-    process.exit(1);
+  // ── No git? Go straight to archive download ──────────────────────────
+  if (!fs.existsSync(ROOT + '/.git')) {
+    warn('Not a git repository — downloading latest release.');
+    await updateViaTarball();
+    return;
   }
 
-  // Fork detection
-  const originUrl = getOriginUrl(PROJECT_ROOT);
-  const fork = isFork(originUrl);
-  if (fork) {
-    warn('Updating from fork: ' + originUrl);
-    c('');
+  // ── Fork or no writable git remote? Use archive ─────────────────────
+  const originUrl = getOriginUrl(ROOT);
+  if (isFork(originUrl)) {
+    warn('Fork detected — using archive update: ' + originUrl);
+    await updateViaTarball();
+    return;
   }
 
-  // Windows: configure git workaround
-  if (isWin32) {
-    require('child_process').execSync(
-      'git -c windows.appendAtomically=false config windows.appendAtomically false',
-      { cwd: PROJECT_ROOT }
-    );
-  }
-
-  // Fetch
+  // ── Try git pull ─────────────────────────────────────────────────────
   try {
-    c('→ Fetching updates...');
-    gitFetch(PROJECT_ROOT, { win32: isWin32 });
+    say('→ Fetching from origin...');
+    gitFetch(ROOT);
+    const branch = getCurrentBranch(ROOT);
+    say(`→ Pulling on branch "${branch}"...`);
+    gitPull(ROOT);
+    ok('Updated via git pull.');
+    say('\n→ Run "npm install" if dependencies changed.\n');
+    return;
   } catch (e: unknown) {
     const err = e instanceof Error ? e.message : String(e);
+
     if (err.includes('Could not resolve host') || err.includes('unable to access')) {
-      fail('Network error — cannot reach the remote repository.');
-      process.exit(1);
+      fail('Network error — cannot reach GitHub. Try: nyxmind update --offline');
     }
     if (err.includes('Authentication failed') || err.includes('could not read Username')) {
-      fail('Authentication failed — check your git credentials or SSH key.');
-      process.exit(1);
+      fail('Git authentication failed — check your SSH key or git credentials.');
     }
-    fail('Failed to fetch updates from origin.');
-    process.exit(1);
-  }
+    if (err.includes('could not find Merge base') || err.includes('fast-forward')) {
+      fail('Local changes conflict with remote. Commit your changes or run: git reset --hard origin/' + getCurrentBranch(ROOT));
+    }
 
-  // Pull
-  const branch = getCurrentBranch(PROJECT_ROOT);
-  try {
-    c(`→ Pulling on branch "${branch}"...`);
-    gitPull(PROJECT_ROOT, { win32: isWin32 });
-    ok('NyxMindClaw updated successfully!');
-    c('\n→ Run "npm install" if dependencies changed.\n');
-  } catch {
-    warn('git pull failed. Trying ZIP update...');
-    await updateViaZip();
+    warn('git pull failed — falling back to archive download...');
+    try {
+      await updateViaTarball();
+    } catch {
+      await updateViaZip();
+    }
   }
 }
 
 export function registerUpdateCommand(program: Command): void {
   program
     .command('update')
-    .description('Update NyxMindClaw to the latest version')
-    .action(cmdUpdate);
+    .description('Update NyxMindClaw to the latest version (all OS supported)')
+    .option('--branch <name>', 'branch to update from', 'main')
+    .action(async (opts) => {
+      try {
+        if (opts.branch !== 'main') {
+          await updateViaTarball(opts.branch);
+        } else {
+          await runUpdate();
+        }
+      } catch (e: unknown) {
+        fail('Update failed: ' + (e instanceof Error ? e.message : String(e)));
+      }
+    });
 }
