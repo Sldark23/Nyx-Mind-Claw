@@ -4,7 +4,9 @@
   "private": false,
   "license": "MIT",
   "description": "Open-source multi-platform AI agent framework",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "bin": {
     "nyxmind": "packages/cli/dist/index.js"
   },
@@ -13,5 +15,10 @@
     "dev": "npm run dev --workspaces",
     "lint": "npm run lint --workspaces",
     "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9"
   }
 }
