@@ -1,0 +1,1 @@
+export { registerUpdateCommand } from './register';

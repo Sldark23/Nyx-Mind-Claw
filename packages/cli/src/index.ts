@@ -5,6 +5,7 @@ import { registerInitCommand } from './commands/init/index';
 import { registerOnboardCommand } from './commands/onboard/index';
 import { registerRunCommand } from './commands/run/index';
 import { registerReplCommand } from './commands/repl/index';
+import { registerUpdateCommand } from './commands/update/index';
 
 const program = new Command();
 
@@ -14,5 +15,6 @@ registerInitCommand(program);
 registerOnboardCommand(program);
 registerRunCommand(program);
 registerReplCommand(program);
+registerUpdateCommand(program);
 
 program.parse(process.argv);
