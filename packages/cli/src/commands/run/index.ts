@@ -1,0 +1,1 @@
+export { registerRunCommand } from './register';

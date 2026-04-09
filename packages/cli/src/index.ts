@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { Command } from 'commander';
-import { registerInitCommand } from './commands/init';
-import { registerOnboardCommand } from './commands/onboard';
-import { registerRunCommand } from './commands/run';
-import { registerReplCommand } from './commands/repl';
+import { registerInitCommand } from './commands/init/index';
+import { registerOnboardCommand } from './commands/onboard/index';
+import { registerRunCommand } from './commands/run/index';
+import { registerReplCommand } from './commands/repl/index';
 
 const program = new Command();
 

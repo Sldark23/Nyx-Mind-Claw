@@ -1,5 +1,5 @@
-import { ProviderFactory } from './provider';
-import { ToolRegistry } from './tools';
+import { ProviderFactory } from '../llm';
+import { ToolRegistry } from '../tools';
 import { ChatMessage, ToolCall } from './types';
 
 const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '5', 10);

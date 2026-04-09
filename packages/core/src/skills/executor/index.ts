@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import { SkillMeta } from '../loader/types';
-import { AgentLoop } from '../../agent-loop';
+import { AgentLoop } from '../../agent/agent-loop';
 
 export class SkillExecutor {
   constructor(private loop: AgentLoop) {}

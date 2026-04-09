@@ -1,0 +1,1 @@
+export { registerReplCommand } from './register';

@@ -3,15 +3,10 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { Ollama } from 'ollama';
 import axios from 'axios';
-import { ChatMessage } from '../types';
+import { ChatMessage } from '../agent/types';
 import { ProviderConfig } from './config';
 import { Provider } from './constants';
 import { defaultBaseUrl, defaultModel } from './defaults';
-
-export { Provider } from './constants';
-export { ProviderConfig } from './config';
-export { validateConfig, configFromEnv } from './config';
-export { defaultBaseUrl, defaultModel } from './defaults';
 
 export class ProviderFactory {
   constructor(private cfg: ProviderConfig) {}

@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { ProviderFactory, configFromEnv, ProviderConfig } from './provider';
-import { ToolRegistry } from './tools';
-import { SkillLoader } from './skills/loader';
-import { SkillRouter } from './skills/router';
-import { SkillExecutor } from './skills/executor';
+import { ProviderFactory, configFromEnv, ProviderConfig } from '../llm';
+import { ToolRegistry } from '../tools';
+import { SkillLoader } from '../skills/loader';
+import { SkillRouter } from '../skills/router';
+import { SkillExecutor } from '../skills/executor';
 import { AgentLoop } from './agent-loop';
-import { MemoryManager } from './memory';
+import { MemoryManager } from '../memory';
 import { ChannelType } from './types';
 
 const ALLOWED_USER_IDS = (process.env.ALLOWED_USER_IDS || '')

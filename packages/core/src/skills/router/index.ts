@@ -1,4 +1,4 @@
-import { ProviderFactory } from '../../provider';
+import { ProviderFactory } from '../../llm';
 import { SkillMeta } from '../loader/types';
 
 export class SkillRouter {

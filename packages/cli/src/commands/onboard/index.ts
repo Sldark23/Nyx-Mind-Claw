@@ -1,0 +1,1 @@
+export { registerOnboardCommand } from './register';
