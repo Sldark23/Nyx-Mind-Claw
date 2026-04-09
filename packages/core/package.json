@@ -17,10 +17,13 @@
     "@anthropic-ai/sdk": "^0.21.0",
     "ollama": "^0.5.6",
     "axios": "^1.7.2",
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
-    "@types/node": "^20.11.30"
+    "@types/node": "^20.11.30",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/js-yaml": "^4.0.9"
   }
 }

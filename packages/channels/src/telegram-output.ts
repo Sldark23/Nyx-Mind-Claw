@@ -1,27 +1,18 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { Context } from 'grammy';
+import { Bot, InputFile } from 'grammy';
+import fs from 'fs';
 
 export class TelegramOutputHandler {
-  async sendText(ctx: Context, text: string) {
-    const chunks = this.chunk(text, 3900);
-    for (const part of chunks) {
-      await ctx.reply(part);
-    }
+  constructor(private bot: Bot) {}
+
+  async sendText(chatId: string, text: string): Promise<void> {
+    await this.bot.api.sendMessage(chatId, text);
   }
 
-  async sendMarkdownFile(ctx: Context, content: string, filename = 'output.md') {
-    const tmpDir = './tmp';
-    await fs.mkdir(tmpDir, { recursive: true });
-    const filePath = path.join(tmpDir, filename);
-    await fs.writeFile(filePath, content, 'utf-8');
-    await ctx.replyWithDocument({ source: filePath });
-    await fs.unlink(filePath).catch(() => {});
+  async sendDocument(chatId: string, filePath: string, caption?: string): Promise<void> {
+    await this.bot.api.sendDocument(chatId, new InputFile(fs.createReadStream(filePath)), { caption });
   }
 
-  private chunk(text: string, size: number) {
-    const parts: string[] = [];
-    for (let i = 0; i < text.length; i += size) parts.push(text.slice(i, i + size));
-    return parts;
+  async sendImage(chatId: string, filePath: string, caption?: string): Promise<void> {
+    await this.bot.api.sendPhoto(chatId, new InputFile(fs.createReadStream(filePath)), { caption });
   }
 }

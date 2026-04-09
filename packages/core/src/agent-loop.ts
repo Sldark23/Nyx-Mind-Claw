@@ -1,37 +1,87 @@
 import { ProviderFactory } from './provider';
-import { ToolRegistry } from './tools/registry';
+import { ToolRegistry, ToolDefinition } from './tools/registry';
 import { ChatMessage, ToolCall } from './types';
 
+const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '5', 10);
+
 export class AgentLoop {
-  constructor(private llm: ProviderFactory, private tools: ToolRegistry, private maxIterations = 5) {}
+  private maxIterations: number;
 
-  async run(userInput: string, skillContent?: string) {
+  constructor(
+    private llm: ProviderFactory,
+    private tools: ToolRegistry,
+    maxIterations = MAX_ITERATIONS
+  ) {
+    this.maxIterations = maxIterations;
+  }
+
+  async run(userInput: string, context?: string): Promise<string> {
     const messages: ChatMessage[] = [];
+    const toolPrompt = this.tools.buildSystemPrompt();
 
-    if (skillContent) messages.push({ role: 'system', content: skillContent });
+    if (context) {
+      messages.push({ role: 'system', content: context + '\n\n' + toolPrompt });
+    } else if (toolPrompt) {
+      messages.push({ role: 'system', content: toolPrompt });
+    }
+
     messages.push({ role: 'user', content: userInput });
 
-    for (let i = 0; i < this.maxIterations; i++) {
-      const response = await this.llm.chat(messages);
+    for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
+      console.log(`\n🔄 [Loop:iter ${iteration}/${this.maxIterations}] Sending to ${this.llm.getModelName()}`);
+
+      let response: string;
+      try {
+        response = await this.llm.chat(messages);
+      } catch (err: any) {
+        console.error(`[Loop:error] LLM call failed: ${err.message}`);
+        return `⚠️ Erro na chamada ao LLM: ${err.message}`;
+      }
+
+      console.log(`[Loop:thought]\n${response}\n`);
 
       const toolCall = this.parseToolCall(response);
-      if (!toolCall) return response;
 
-      const output = await this.executeTool(toolCall);
+      if (!toolCall) {
+        console.log(`[Loop:final] No tool call detected, returning response.`);
+        return response;
+      }
+
+      console.log(`[Loop:action] Calling tool=${toolCall.tool} args=${JSON.stringify(toolCall.args)}`);
+
+      let output: string;
+      try {
+        output = await this.executeTool(toolCall);
+      } catch (err: any) {
+        console.error(`[Loop:tool-error] ${err.message}`);
+        output = `Tool error: ${err.message}`;
+      }
+
+      console.log(`[Loop:observation] ${output.slice(0, 200)}${output.length > 200 ? '...' : ''}`);
+
+      messages.push({ role: 'assistant', content: response });
       messages.push({ role: 'tool', content: output });
     }
 
-    return '⚠️ Max iterations reached.';
+    console.log(`[Loop:max-iterations] Reached MAX_ITERATIONS=${this.maxIterations}, giving up.`);
+    return '⚠️ Desculpe, o processamento excedeu o limite de iterações. Por favor, tente uma pergunta mais específica.';
   }
 
   private parseToolCall(text: string): ToolCall | null {
+    const match = text.match(/\{[\s\S]*?\}/);
+    if (!match) return null;
+
     try {
-      const match = text.match(/\{.*\}/s);
-      if (!match) return null;
       const parsed = JSON.parse(match[0]);
-      if (parsed.tool && parsed.args) return parsed as ToolCall;
+      if (parsed.tool && parsed.args && typeof parsed.tool === 'string') {
+        return parsed as ToolCall;
+      }
+      if (parsed.tool && typeof parsed.args === 'undefined') {
+        return null;
+      }
       return null;
     } catch {
+      console.warn(`[Loop:parse-error] JSON malformado: ${match[0].slice(0, 100)}`);
       return null;
     }
   }

@@ -29,3 +29,8 @@ export interface ToolCall {
   tool: string;
   args: Record<string, any>;
 }
+
+export interface ToolResult {
+  output: string;
+  error?: string;
+}

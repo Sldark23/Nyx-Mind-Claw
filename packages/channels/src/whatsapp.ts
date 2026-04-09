@@ -8,11 +8,14 @@ export class WhatsAppChannel {
     this.client = new WClient({ authStrategy: new LocalAuth() });
   }
 
-  async start() {
+  start() {
     this.client.on('message', async (msg) => {
-      const output = await this.controller.handle(msg.from, 'whatsapp', msg.body);
-      await msg.reply(output);
+      if (msg.fromMe) return;
+      const { output, blocked } = await this.controller.handle(msg.from, 'whatsapp', msg.body);
+      if (!blocked) {
+        await msg.reply(output);
+      }
     });
-    await this.client.initialize();
+    this.client.initialize().catch(console.error);
   }
 }

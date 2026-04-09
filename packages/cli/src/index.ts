@@ -1,120 +1,132 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import { Command } from 'commander';
-import { config as dotenv } from 'dotenv';
-import fs from 'fs';
+import * as fs from 'fs';
 import { AgentController, ProviderConfig } from '@nyxmind/core';
 import { TelegramInputHandler, DiscordChannel, WhatsAppChannel } from '@nyxmind/channels';
 import { Bot } from 'grammy';
-
-dotenv();
 
 const program = new Command();
 program.name('nyxmind').description('NyxMindClaw CLI').version('0.1.0');
 
 program.command('init').description('Create .env template').action(() => {
-  const template = `# Providers\nPROVIDER=openai\nOPENAI_API_KEY=\nGROQ_API_KEY=\nGROK_API_KEY=\nMINIMAX_API_KEY=\nANTHROPIC_API_KEY=\nOLLAMA_BASE_URL=http://localhost:11434\nMODEL=gpt-4o-mini\n\n# Channels\nTELEGRAM_BOT_TOKEN=\nTELEGRAM_ALLOWED_IDS=\nDISCORD_TOKEN=\nWHATSAPP_ENABLED=false\n`;
-  if (!fs.existsSync('.env')) fs.writeFileSync('.env', template);
-  console.log('✅ .env criado');
+  const template = `# LLM Provider
+LLM_PROVIDER=openai
+LLM_API_KEY=your_api_key_here
+LLM_MODEL=gpt-4o-mini
+LLM_BASE_URL=
+
+# Agent
+MAX_ITERATIONS=5
+MEMORY_WINDOW_SIZE=20
+
+# Directories
+SKILLS_DIR=.agents/skills
+DATA_DIR=./data
+TMP_DIR=./tmp
+
+# Security
+GLOBAL_ALLOWED_IDS=
+
+# Channels
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_ALLOWED_IDS=
+DISCORD_TOKEN=
+WHATSAPP_ENABLED=false
+`;
+  if (!fs.existsSync('.env')) {
+    fs.writeFileSync('.env', template);
+    console.log('✅ .env created');
+  } else {
+    console.log('⚠️  .env already exists');
+  }
 });
 
 program.command('onboard').description('Interactive onboarding').action(async () => {
   const readline = await import('node:readline/promises');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  console.log('🧩 NyxMindClaw Onboarding');
+  console.log('\n🧩 NyxMindClaw Onboarding\n');
 
-  const providers = ['openai', 'groq', 'grok', 'minimax', 'anthropic', 'ollama'];
-  console.log('\nEscolha o provedor LLM:');
-  providers.forEach((p, i) => console.log(`${i + 1}) ${p}`));
-
-  const choice = await rl.question('Número do provedor: ');
-  const idx = Math.max(0, Math.min(providers.length - 1, parseInt(choice) - 1));
-  const provider = providers[idx];
+  const providers = ['openai', 'groq', 'grok', 'minimax', 'anthropic', 'ollama', 'gemini', 'deepseek'];
+  console.log('Choose LLM provider:');
+  providers.forEach((p, i) => console.log(`  ${i + 1}) ${p}`));
+  const choice = await rl.question('\nProvider number: ');
+  const idx = Math.max(0, Math.min(providers.length - 1, parseInt(choice) - 1 || 0));
+  const prov = providers[idx];
 
   let apiKey = '';
-  if (provider !== 'ollama') {
-    apiKey = await rl.question(`API KEY para ${provider}: `);
+  if (prov !== 'ollama') {
+    apiKey = await rl.question(`API Key for ${prov}: `);
   }
 
-  const model = await rl.question('Modelo (ex: gpt-4o-mini, llama3.1, claude-3-5-sonnet) [enter p/ default]: ');
-  const maxIterations = await rl.question('MAX_ITERATIONS (default 5): ');
-  const memoryWindow = await rl.question('MEMORY_WINDOW_SIZE (default 10): ');
-  const skillsDir = await rl.question('SKILLS_DIR (default .agents/skills): ');
-  const dataDir = await rl.question('DATA_DIR (default ./data): ');
-  const tmpDir = await rl.question('TMP_DIR (default ./tmp): ');
+  const model = await rl.question(`Model [enter for default]: `);
+  const maxIter = await rl.question('MAX_ITERATIONS [5]: ') || '5';
+  const memWin = await rl.question('MEMORY_WINDOW_SIZE [20]: ') || '20';
+  const skillsDir = await rl.question('SKILLS_DIR [.agents/skills]: ') || '.agents/skills';
+  const dataDir = await rl.question('DATA_DIR [./data]: ') || './data';
+  const tmpDir = await rl.question('TMP_DIR [./tmp]: ') || './tmp';
+  const whitelist = await rl.question('GLOBAL_ALLOWED_IDS (csv, enter to skip): ');
+  const tgToken = await rl.question('TELEGRAM_BOT_TOKEN (enter to skip): ');
+  const tgIds = await rl.question('TELEGRAM_ALLOWED_IDS (csv, enter to skip): ');
+  const discord = await rl.question('DISCORD_TOKEN (enter to skip): ');
+  const waEnabled = await rl.question('WHATSAPP_ENABLED [false]: ') || 'false';
 
-  const whitelist = await rl.question('GLOBAL_ALLOWED_IDS (csv) (enter p/ pular): ');
-  const maxFileSize = await rl.question('MAX_FILE_MB (default 20): ');
-  const audioLimit = await rl.question('MAX_AUDIO_SEC (default 120): ');
-  const skillsEnabled = await rl.question('SKILLS_ENABLED true/false (default true): ');
-
-  const telegram = await rl.question('TELEGRAM_BOT_TOKEN (enter p/ pular): ');
-  const allowed = await rl.question('TELEGRAM_ALLOWED_IDS (csv) (enter p/ pular): ');
-  const discord = await rl.question('DISCORD_TOKEN (enter p/ pular): ');
-  const whatsapp = await rl.question('WHATSAPP_ENABLED true/false (default false): ');
-
-  const lines = [
-    `PROVIDER=${provider}`,
-    `MODEL=${model || (provider === 'ollama' ? 'llama3.1' : 'gpt-4o-mini')}`,
-    `OPENAI_API_KEY=${provider === 'openai' ? apiKey : ''}`,
-    `GROQ_API_KEY=${provider === 'groq' ? apiKey : ''}`,
-    `GROK_API_KEY=${provider === 'grok' ? apiKey : ''}`,
-    `MINIMAX_API_KEY=${provider === 'minimax' ? apiKey : ''}`,
-    `ANTHROPIC_API_KEY=${provider === 'anthropic' ? apiKey : ''}`,
-    `OLLAMA_BASE_URL=http://localhost:11434`,
-    `MAX_ITERATIONS=${maxIterations || '5'}`,
-    `MEMORY_WINDOW_SIZE=${memoryWindow || '10'}`,
-    `SKILLS_DIR=${skillsDir || '.agents/skills'}`,
-    `DATA_DIR=${dataDir || './data'}`,
-    `TMP_DIR=${tmpDir || './tmp'}`,
-    `GLOBAL_ALLOWED_IDS=${whitelist || ''}`,
-    `MAX_FILE_MB=${maxFileSize || '20'}`,
-    `MAX_AUDIO_SEC=${audioLimit || '120'}`,
-    `SKILLS_ENABLED=${skillsEnabled || 'true'}`,
-    `TELEGRAM_BOT_TOKEN=${telegram || ''}`,
-    `TELEGRAM_ALLOWED_IDS=${allowed || ''}`,
-    `DISCORD_TOKEN=${discord || ''}`,
-    `WHATSAPP_ENABLED=${whatsapp || 'false'}`,
+  const envLines = [
+    `LLM_PROVIDER=${prov}`,
+    `LLM_API_KEY=${apiKey}`,
+    `LLM_MODEL=${model || ''}`,
+    `LLM_BASE_URL=`,
+    `MAX_ITERATIONS=${maxIter}`,
+    `MEMORY_WINDOW_SIZE=${memWin}`,
+    `SKILLS_DIR=${skillsDir}`,
+    `DATA_DIR=${dataDir}`,
+    `TMP_DIR=${tmpDir}`,
+    `GLOBAL_ALLOWED_IDS=${whitelist}`,
+    `TELEGRAM_BOT_TOKEN=${tgToken}`,
+    `TELEGRAM_ALLOWED_IDS=${tgIds}`,
+    `DISCORD_TOKEN=${discord}`,
+    `WHATSAPP_ENABLED=${waEnabled}`,
   ].join('\n');
 
-  const fs = await import('node:fs');
-  fs.writeFileSync('.env', lines);
-  console.log('\n✅ .env criado com sucesso');
+  fs.writeFileSync('.env', envLines);
+  console.log('\n✅ .env created successfully');
   rl.close();
 });
 
 program.command('run').description('Run NyxMindClaw').action(async () => {
-  const provider: ProviderConfig = {
-    provider: (process.env.PROVIDER as any) || 'openai',
-    apiKey: process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || process.env.GROK_API_KEY || process.env.MINIMAX_API_KEY || process.env.ANTHROPIC_API_KEY,
-    baseUrl: process.env.OLLAMA_BASE_URL,
-    model: process.env.MODEL
+  const cfg: ProviderConfig = {
+    provider: (process.env.LLM_PROVIDER as any) || 'openai',
+    apiKey: process.env.LLM_API_KEY,
+    baseUrl: process.env.LLM_BASE_URL,
+    model: process.env.LLM_MODEL,
   };
 
-  const controller = new AgentController(provider);
+  const controller = new AgentController(cfg);
 
-  // Telegram
   if (process.env.TELEGRAM_BOT_TOKEN) {
     const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
-    const allowed = (process.env.TELEGRAM_ALLOWED_IDS || '').split(',').filter(Boolean);
+    const allowed = (process.env.TELEGRAM_ALLOWED_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
     const tg = new TelegramInputHandler(bot, controller, allowed);
     await tg.start();
-    console.log('✅ Telegram started');
+    console.log('✅ Telegram handler started');
+  } else {
+    console.log('ℹ️  TELEGRAM_BOT_TOKEN not set, skipping Telegram');
   }
 
-  // Discord
-  if (process.env.DISCORD_TOKEN) {
-    const discord = new DiscordChannel(process.env.DISCORD_TOKEN, controller);
-    await discord.start();
-    console.log('✅ Discord started');
-  }
+    if (process.env.DISCORD_TOKEN) {
+      const discord = new DiscordChannel(process.env.DISCORD_TOKEN, controller);
+      discord.start();
+      console.log('✅ Discord handler started');
+    }
 
-  // WhatsApp
-  if (process.env.WHATSAPP_ENABLED === 'true') {
-    const wa = new WhatsAppChannel(controller);
-    await wa.start();
-    console.log('✅ WhatsApp started');
-  }
+    if (process.env.WHATSAPP_ENABLED === 'true') {
+      const wa = new WhatsAppChannel(controller);
+      wa.start();
+      console.log('✅ WhatsApp handler started');
+    }
+
+  console.log('\n🚀 NyxMindClaw running. Press Ctrl+C to stop.\n');
 });
 
 program.parse(process.argv);
