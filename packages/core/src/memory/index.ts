@@ -94,3 +94,5 @@ export class MemoryManager {
     this.db.close();
   }
 }
+
+export { VectorStore } from './vector-store';
