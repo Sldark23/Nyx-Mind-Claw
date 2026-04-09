@@ -36,7 +36,7 @@ export class AgentController {
     this.loader = new SkillLoader();
     this.memory = new MemoryManager();
     this.router = new SkillRouter(this.llm);
-    this.loop = new AgentLoop(this.llm, this.tools, MAX_ITERATIONS);
+    this.loop = new AgentLoop({ llm: this.llm, tools: this.tools, maxIterations: MAX_ITERATIONS });
   }
 
   isWhitelisted(userId: string): boolean {

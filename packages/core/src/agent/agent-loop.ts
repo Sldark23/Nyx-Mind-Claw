@@ -1,23 +1,83 @@
+/**
+ * AgentLoop — the core reasoning loop.
+ *
+ * Architecture (each piece is swappable):
+ *   LlmCall       — makes LLM calls with retry/backoff
+ *   ToolParser    — extracts ToolCall from LLM text
+ *   ToolExecutor  — runs the tool against the registry
+ */
+import { ChatMessage } from './types';
 import { ProviderFactory } from '../llm';
 import { ToolRegistry } from '../tools';
-import { ChatMessage, ToolCall } from './types';
+import { LlmCall } from './llm-call';
+import { ToolParser } from './tool-parser';
+import { ToolExecutor } from './tool-executor';
 
 const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '5', 10);
 
-export class AgentLoop {
-  private maxIterations: number;
+export interface AgentLoopConfig {
+  llm: ProviderFactory;
+  tools: ToolRegistry;
+  maxIterations?: number;
+  /** Called before each LLM call. Pass false to skip the iteration. */
+  onIteration?: (iter: number, messages: ChatMessage[]) => void;
+}
 
-  constructor(
-    private llm: ProviderFactory,
-    private tools: ToolRegistry,
-    maxIterations = MAX_ITERATIONS
-  ) {
-    this.maxIterations = maxIterations;
+export class AgentLoop {
+  private readonly maxIterations: number;
+  private readonly llmCall: LlmCall;
+  private readonly parser: ToolParser;
+  private readonly executor: ToolExecutor;
+  private readonly onIteration?: AgentLoopConfig['onIteration'];
+
+  constructor(config: AgentLoopConfig) {
+    this.maxIterations = config.maxIterations ?? MAX_ITERATIONS;
+    this.llmCall = new LlmCall(config.llm);
+    this.parser = new ToolParser();
+    this.executor = new ToolExecutor({ registry: config.tools });
+    this.onIteration = config.onIteration;
   }
 
+  /**
+   * Run the agent loop with a user input.
+   * Returns the final text response (no tool calls detected).
+   */
   async run(userInput: string, context?: string): Promise<string> {
+    const messages = this.buildMessages(userInput, context);
+
+    for (let iter = 1; iter <= this.maxIterations; iter++) {
+      this.onIteration?.(iter, messages);
+
+      // 1. Call LLM
+      const thought: string = await this.llmCall.chat(messages);
+
+      // 2. Parse tool call
+      const toolCall = this.parser.parse(thought);
+
+      if (!toolCall) {
+        // No tool detected — return as final response
+        return thought;
+      }
+
+      // 3. Execute tool
+      let output: string;
+      try {
+        output = await this.executor.execute(toolCall);
+      } catch (err) {
+        output = `Tool error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+
+      // 4. Append to message history and loop
+      messages.push({ role: 'assistant', content: thought });
+      messages.push({ role: 'tool', content: output });
+    }
+
+    return '⚠️ O processamento excedeu o limite de iterações. Tente uma pergunta mais específica.';
+  }
+
+  private buildMessages(userInput: string, context?: string): ChatMessage[] {
     const messages: ChatMessage[] = [];
-    const toolPrompt = this.tools.buildSystemPrompt();
+    const toolPrompt = this.executor['deps'].registry.buildSystemPrompt();
 
     if (context) {
       messages.push({ role: 'system', content: context + '\n\n' + toolPrompt });
@@ -26,79 +86,6 @@ export class AgentLoop {
     }
 
     messages.push({ role: 'user', content: userInput });
-
-    for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
-      console.log(`\n🔄 [Loop:iter ${iteration}/${this.maxIterations}] Sending to ${this.llm.getModelName()}`);
-
-      let response: string;
-      try {
-        response = await this.llm.chat(messages);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[Loop:error] LLM call failed: ${message}`);
-        return `⚠️ Erro na chamada ao LLM: ${message}`;
-      }
-
-      console.log(`[Loop:thought]\n${response}\n`);
-
-      const toolCall = this.parseToolCall(response);
-
-      if (!toolCall) {
-        console.log(`[Loop:final] No tool call detected, returning response.`);
-        return response;
-      }
-
-      console.log(`[Loop:action] Calling tool=${toolCall.tool} args=${JSON.stringify(toolCall.args)}`);
-
-      let output: string;
-      try {
-        output = await this.executeTool(toolCall);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[Loop:tool-error] ${message}`);
-        output = `Tool error: ${message}`;
-      }
-
-      console.log(`[Loop:observation] ${output.slice(0, 200)}${output.length > 200 ? '...' : ''}`);
-
-      messages.push({ role: 'assistant', content: response });
-      messages.push({ role: 'tool', content: output });
-    }
-
-    console.log(`[Loop:max-iterations] Reached MAX_ITERATIONS=${this.maxIterations}, giving up.`);
-    return '⚠️ Desculpe, o processamento excedeu o limite de iterações. Por favor, tente uma pergunta mais específica.';
-  }
-
-  private parseToolCall(text: string): ToolCall | null {
-    const match = text.match(/\{[\s\S]*?\}/);
-    if (!match) return null;
-
-    try {
-      const parsed = JSON.parse(match[0]);
-      if (parsed.tool && parsed.args && typeof parsed.tool === 'string') {
-        return parsed as ToolCall;
-      }
-      return null;
-    } catch {
-      console.warn(`[Loop:parse-error] JSON malformado: ${match[0].slice(0, 100)}`);
-      return null;
-    }
-  }
-
-  private async executeTool(call: ToolCall): Promise<string> {
-    switch (call.tool) {
-      case 'shell':
-        return this.tools.shell(call.args.command as string);
-      case 'read_file':
-        return this.tools.readFile(call.args.path as string);
-      case 'write_file':
-        return this.tools.writeFile(call.args.path as string, call.args.content as string);
-      case 'web_search':
-        return this.tools.searchWeb(call.args.query as string);
-      case 'web_fetch':
-        return this.tools.fetchUrl(call.args.url as string);
-      default:
-        return `Unknown tool: ${call.tool}`;
-    }
+    return messages;
   }
 }
