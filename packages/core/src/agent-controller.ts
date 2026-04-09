@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { ProviderFactory, ProviderConfig, configFromEnv } from './provider';
-import { ToolRegistry } from './tools/registry';
+import { ProviderFactory, configFromEnv, ProviderConfig } from './provider';
+import { ToolRegistry } from './tools';
 import { SkillLoader } from './skills/loader';
 import { SkillRouter } from './skills/router';
 import { SkillExecutor } from './skills/executor';
@@ -109,11 +109,11 @@ export class AgentController {
     return { output };
   }
 
-  getMemory() {
+  getMemory(): MemoryManager {
     return this.memory;
   }
 
-  getTools() {
+  getTools(): ToolRegistry {
     return this.tools;
   }
 }

@@ -1,0 +1,24 @@
+export const ENV_TEMPLATE = `# LLM Provider
+LLM_PROVIDER=openai
+LLM_API_KEY=
+LLM_MODEL=gpt-4o-mini
+LLM_BASE_URL=
+
+# Agent
+MAX_ITERATIONS=5
+MEMORY_WINDOW_SIZE=20
+
+# Directories
+SKILLS_DIR=.agents/skills
+DATA_DIR=./data
+TMP_DIR=./tmp
+
+# Security
+GLOBAL_ALLOWED_IDS=
+
+# Channels
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_ALLOWED_IDS=
+DISCORD_TOKEN=
+WHATSAPP_ENABLED=false
+`;

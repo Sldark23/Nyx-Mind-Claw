@@ -1,4 +1,3 @@
-export * from './telegram-input';
-export * from './telegram-output';
+export * from './telegram';
 export * from './discord';
 export * from './whatsapp';

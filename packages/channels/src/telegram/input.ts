@@ -4,16 +4,19 @@ import path from 'path';
 import axios from 'axios';
 import pdfParse from 'pdf-parse';
 import { AgentController } from '@nyxmind/core';
+import { TelegramConfig } from './types';
 
 const MAX_FILE_MB = parseInt(process.env.MAX_FILE_MB || '20', 10);
 const TG_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 export class TelegramInputHandler {
-  constructor(
-    private bot: Bot,
-    private controller: AgentController,
-    private allowedIds: string[]
-  ) {}
+  private bot: Bot;
+  private allowedIds: string[];
+
+  constructor(botToken: string, private controller: AgentController, allowedIds: string[] = []) {
+    this.bot = new Bot(botToken);
+    this.allowedIds = allowedIds;
+  }
 
   async start() {
     this.bot.on('message:text', async (ctx) => this.handleText(ctx));
@@ -70,7 +73,6 @@ export class TelegramInputHandler {
         return;
       }
 
-      // Download via Telegram Bot API
       const downloadUrl = `https://api.telegram.org/file/bot${TG_BOT_TOKEN}/${filePath}`;
       const response = await axios.get(downloadUrl, { responseType: 'arraybuffer', timeout: 60000 });
       await fs.writeFile(destPath, response.data);

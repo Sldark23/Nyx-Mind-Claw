@@ -9,9 +9,9 @@
     "nyxmind": "packages/cli/dist/index.js"
   },
   "scripts": {
-    "build": "npm run build -ws",
-    "dev": "npm run dev -ws",
-    "lint": "npm run lint -ws",
-    "test": "npm run test -ws"
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces"
   }
 }

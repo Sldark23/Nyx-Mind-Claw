@@ -9,7 +9,7 @@ export interface Message {
   senderName: string;
   chatId: string;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Response {
@@ -17,7 +17,7 @@ export interface Response {
   channel: ChannelType;
   chatId: string;
   replyTo?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ChatMessage {
@@ -27,7 +27,7 @@ export interface ChatMessage {
 
 export interface ToolCall {
   tool: string;
-  args: Record<string, any>;
+  args: Record<string, unknown>;
 }
 
 export interface ToolResult {

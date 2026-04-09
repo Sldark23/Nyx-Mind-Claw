@@ -1,5 +1,5 @@
 import { ProviderFactory } from './provider';
-import { ToolRegistry, ToolDefinition } from './tools/registry';
+import { ToolRegistry } from './tools';
 import { ChatMessage, ToolCall } from './types';
 
 const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '5', 10);
@@ -33,9 +33,10 @@ export class AgentLoop {
       let response: string;
       try {
         response = await this.llm.chat(messages);
-      } catch (err: any) {
-        console.error(`[Loop:error] LLM call failed: ${err.message}`);
-        return `⚠️ Erro na chamada ao LLM: ${err.message}`;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[Loop:error] LLM call failed: ${message}`);
+        return `⚠️ Erro na chamada ao LLM: ${message}`;
       }
 
       console.log(`[Loop:thought]\n${response}\n`);
@@ -52,9 +53,10 @@ export class AgentLoop {
       let output: string;
       try {
         output = await this.executeTool(toolCall);
-      } catch (err: any) {
-        console.error(`[Loop:tool-error] ${err.message}`);
-        output = `Tool error: ${err.message}`;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[Loop:tool-error] ${message}`);
+        output = `Tool error: ${message}`;
       }
 
       console.log(`[Loop:observation] ${output.slice(0, 200)}${output.length > 200 ? '...' : ''}`);
@@ -76,9 +78,6 @@ export class AgentLoop {
       if (parsed.tool && parsed.args && typeof parsed.tool === 'string') {
         return parsed as ToolCall;
       }
-      if (parsed.tool && typeof parsed.args === 'undefined') {
-        return null;
-      }
       return null;
     } catch {
       console.warn(`[Loop:parse-error] JSON malformado: ${match[0].slice(0, 100)}`);
@@ -89,15 +88,15 @@ export class AgentLoop {
   private async executeTool(call: ToolCall): Promise<string> {
     switch (call.tool) {
       case 'shell':
-        return this.tools.shell(call.args.command);
+        return this.tools.shell(call.args.command as string);
       case 'read_file':
-        return this.tools.readFile(call.args.path);
+        return this.tools.readFile(call.args.path as string);
       case 'write_file':
-        return this.tools.writeFile(call.args.path, call.args.content);
+        return this.tools.writeFile(call.args.path as string, call.args.content as string);
       case 'web_search':
-        return this.tools.searchWeb(call.args.query);
+        return this.tools.searchWeb(call.args.query as string);
       case 'web_fetch':
-        return this.tools.fetchUrl(call.args.url);
+        return this.tools.fetchUrl(call.args.url as string);
       default:
         return `Unknown tool: ${call.tool}`;
     }
