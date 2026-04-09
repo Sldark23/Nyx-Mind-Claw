@@ -2,6 +2,7 @@
 import 'dotenv/config';
 import { Command } from 'commander';
 import * as fs from 'fs';
+import * as readline from 'readline/promises';
 import { AgentController, ProviderConfig } from '@nyxmind/core';
 import { TelegramInputHandler, DiscordChannel, WhatsAppChannel } from '@nyxmind/channels';
 import { Bot } from 'grammy';
@@ -9,6 +10,7 @@ import { Bot } from 'grammy';
 const program = new Command();
 program.name('nyxmind').description('NyxMindClaw CLI').version('0.1.0');
 
+// ─── init ───────────────────────────────────────────────────────────────────
 program.command('init').description('Create .env template').action(() => {
   const template = `# LLM Provider
 LLM_PROVIDER=openai
@@ -42,8 +44,8 @@ WHATSAPP_ENABLED=false
   }
 });
 
+// ─── onboard ────────────────────────────────────────────────────────────────
 program.command('onboard').description('Interactive onboarding').action(async () => {
-  const readline = await import('node:readline/promises');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
   console.log('\n🧩 NyxMindClaw Onboarding\n');
@@ -94,7 +96,8 @@ program.command('onboard').description('Interactive onboarding').action(async ()
   rl.close();
 });
 
-program.command('run').description('Run NyxMindClaw').action(async () => {
+// ─── run ─────────────────────────────────────────────────────────────────────
+program.command('run').description('Run NyxMindClaw with channels').action(async () => {
   const cfg: ProviderConfig = {
     provider: (process.env.LLM_PROVIDER as any) || 'openai',
     apiKey: process.env.LLM_API_KEY,
@@ -114,19 +117,52 @@ program.command('run').description('Run NyxMindClaw').action(async () => {
     console.log('ℹ️  TELEGRAM_BOT_TOKEN not set, skipping Telegram');
   }
 
-    if (process.env.DISCORD_TOKEN) {
-      const discord = new DiscordChannel(process.env.DISCORD_TOKEN, controller);
-      discord.start();
-      console.log('✅ Discord handler started');
-    }
+  if (process.env.DISCORD_TOKEN) {
+    const discord = new DiscordChannel(process.env.DISCORD_TOKEN, controller);
+    discord.start();
+    console.log('✅ Discord handler started');
+  }
 
-    if (process.env.WHATSAPP_ENABLED === 'true') {
-      const wa = new WhatsAppChannel(controller);
-      wa.start();
-      console.log('✅ WhatsApp handler started');
-    }
+  if (process.env.WHATSAPP_ENABLED === 'true') {
+    const wa = new WhatsAppChannel(controller);
+    wa.start();
+    console.log('✅ WhatsApp handler started');
+  }
 
   console.log('\n🚀 NyxMindClaw running. Press Ctrl+C to stop.\n');
+});
+
+// ─── repl ─────────────────────────────────────────────────────────────────────
+program.command('repl').description('Interactive REPL — chat with the agent locally').action(async () => {
+  const cfg: ProviderConfig = {
+    provider: (process.env.LLM_PROVIDER as any) || 'openai',
+    apiKey: process.env.LLM_API_KEY,
+    baseUrl: process.env.LLM_BASE_URL,
+    model: process.env.LLM_MODEL,
+  };
+
+  const controller = new AgentController(cfg);
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  console.log('🧩 NyxMindClaw REPL\nDigite sua mensagem ou :exit para sair\n');
+
+  while (true) {
+    const input = await rl.question('\n👤 > ');
+    if (!input.trim() || input === ':exit' || input === ':quit') {
+      console.log('Tchau!');
+      break;
+    }
+    if (input.startsWith(':')) {
+      console.log('Comandos disponíveis: :exit, :quit');
+      continue;
+    }
+
+    process.stdout.write('\n🤖 ');
+    const { output } = await controller.handle('local-user', 'cli', input);
+    console.log(output);
+  }
+
+  rl.close();
 });
 
 program.parse(process.argv);
