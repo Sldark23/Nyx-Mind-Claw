@@ -1,0 +1,52 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nyxmind-bot
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # LLM
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_MAX_ITERATIONS: ${LLM_MAX_ITERATIONS:-10}
+      # Memory
+      MEMORY_WINDOW_SIZE: ${MEMORY_WINDOW_SIZE:-20}
+      DATABASE_URL: ${DATABASE_URL:-mongodb://mongo:27017/nyxmind}
+      # Channels — set tokens you want enabled
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ALLOWED_IDS: ${TELEGRAM_ALLOWED_IDS:-}
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-false}
+      # Skills & data dirs
+      SKILLS_DIR: /data/skills
+      DATA_DIR: /data
+      TMP_DIR: /tmp/nyxmind
+    volumes:
+      - ./data:/data
+      - ./skills:/data/skills:ro
+      - ./tmp:/tmp/nyxmind
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: run
+
+  mongo:
+    image: mongo:7
+    container_name: nyxmind-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: nyxmind
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand({ping:1})']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongo_data:
