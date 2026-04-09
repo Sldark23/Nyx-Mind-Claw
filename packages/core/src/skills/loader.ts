@@ -5,6 +5,7 @@ import yaml from 'js-yaml';
 export interface SkillMeta {
   name: string;
   description: string;
+  trigger?: string;
   path: string;
 }
 
@@ -23,7 +24,12 @@ export class SkillLoader {
       const content = fs.readFileSync(skillPath, 'utf-8');
       const meta = this.parseFrontmatter(content);
       if (meta?.name) {
-        skills.push({ name: meta.name, description: meta.description || '', path: skillPath });
+        skills.push({
+          name: meta.name,
+          description: meta.description || '',
+          trigger: meta.trigger,
+          path: skillPath,
+        });
       }
     }
 

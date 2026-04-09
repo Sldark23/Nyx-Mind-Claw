@@ -7,9 +7,34 @@ export class SkillRouter {
   async route(userInput: string, skills: SkillMeta[]): Promise<string | null> {
     if (!skills.length) return null;
 
-    const skillList = skills.map(s => `${s.name}: ${s.description}`).join('\n');
+    const lowerInput = userInput.toLowerCase();
 
-    const prompt = `You are a router. Return ONLY JSON: {"skillName": "name"} or {"skillName": null}.\n\nAvailable skills:\n${skillList}\n\nUser input: ${userInput}`;
+    // 1. Fast path: match trigger patterns
+    for (const skill of skills) {
+      if (skill.trigger) {
+        try {
+          const re = new RegExp(skill.trigger, 'i');
+          if (re.test(userInput) || re.test(lowerInput)) {
+            return skill.name;
+          }
+        } catch {
+          // invalid regex, skip
+        }
+      }
+    }
+
+    // 2. LLM fallback: pick best skill or null
+    const skillList = skills.map(s => {
+      const trigger = s.trigger ? `[Trigger: ${s.trigger}] ` : '';
+      return `${s.name}: ${trigger}${s.description}`;
+    }).join('\n');
+
+    const prompt = `You are a skill router. Return ONLY valid JSON with no markdown: {"skillName": "name"} or {"skillName": null}.
+
+Available skills:
+${skillList}
+
+User input: ${userInput}`;
 
     try {
       const response = await this.llm.chat([{ role: 'user', content: prompt }]);
