@@ -1,5 +1,6 @@
 /**
  * nyxmind-claw.json config system with .env fallback.
+ * Inspired by openclaw/.openclawrc — no ninoclaw influence.
  *
  * Loads nyxmind-claw.json if it exists in the project root,
  * otherwise falls back to environment variables (.env).
@@ -14,7 +15,145 @@ import dotenv from 'dotenv';
 
 export type LlmProvider = 'openai' | 'groq' | 'grok' | 'minimax' | 'anthropic' | 'ollama' | 'gemini' | 'deepseek';
 
+// ── Model & Cost (from openclaw) ────────────────────────────────────────────
+
+export interface ModelCost {
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+}
+
+export interface ModelEntry {
+  id: string;
+  name: string;
+  alias?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  input?: string[];
+  cost?: ModelCost;
+  reasoning?: boolean;
+}
+
+export interface ModelsProviderConfig {
+  provider: string;
+  api: string;
+  apiKey?: string;
+  baseUrl?: string;
+  models?: ModelEntry[];
+}
+
+export interface ModelsConfig {
+  providers?: Record<string, ModelsProviderConfig>;
+  mode?: 'merge' | 'replace';
+}
+
+// ── Agents (from openclaw) ───────────────────────────────────────────────────
+
+export interface AgentsConfig {
+  defaults?: {
+    model?: { primary?: string };
+    workspace?: string;
+    models?: Record<string, { alias?: string }>;
+  };
+}
+
+// ── Gateway (from openclaw) ─────────────────────────────────────────────────
+
+export interface GatewayConfig {
+  auth?: { mode?: 'token' | 'none'; token?: string };
+  mode?: 'local' | 'lan' | 'public';
+  port?: number;
+  bind?: 'localhost' | 'lan' | '0.0.0.0';
+  tailscale?: { mode?: 'off' | 'auth-key' | 'oauth'; resetOnExit?: boolean };
+  controlUi?: { allowInsecureAuth?: boolean };
+}
+
+// ── Session (from openclaw) ─────────────────────────────────────────────────
+
+export interface SessionConfig {
+  dmScope?: 'per-channel-peer' | 'global' | 'per-guild';
+}
+
+// ── Tools (from openclaw) ────────────────────────────────────────────────────
+
+export interface ToolsConfig {
+  profile?: 'coding' | 'general' | 'research';
+  web?: {
+    search?: { provider?: string; enabled?: boolean; openaiCodex?: Record<string, unknown> };
+    fetch?: { enabled?: boolean };
+  };
+}
+
+// ── Hooks (from openclaw) ────────────────────────────────────────────────────
+
+export interface HooksConfig {
+  internal?: {
+    enabled?: boolean;
+    entries?: Record<string, { enabled?: boolean }>;
+  };
+}
+
+// ── Wizard (from openclaw) ──────────────────────────────────────────────────
+
+export interface WizardConfig {
+  lastRunAt?: string;
+  lastRunVersion?: string;
+  lastRunCommand?: string;
+  lastRunMode?: string;
+}
+
+// ── Plugins (from openclaw) ──────────────────────────────────────────────────
+
+export interface PluginEntry {
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface PluginsConfig {
+  entries?: Record<string, PluginEntry>;
+}
+
+// ── Channels (from openclaw) ─────────────────────────────────────────────────
+
+export interface DiscordConfig {
+  enabled?: boolean;
+  token?: string;
+  groupPolicy?: 'allowlist' | 'blocklist' | 'all';
+  guilds?: Record<string, unknown>;
+}
+
+export interface TelegramConfig {
+  enabled?: boolean;
+  botToken?: string;
+  allowedIds?: string[];
+  rateLimit?: number;
+}
+
+export interface WhatsAppConfig {
+  enabled?: boolean;
+}
+
+// ── Telemetry (from openclaw) ────────────────────────────────────────────────
+
+export interface TelemetryConfig {
+  enabled?: boolean;
+  endpoint?: string;
+}
+
+// ── Logging ────────────────────────────────────────────────────────────────
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface LoggingConfig {
+  level?: LogLevel;
+  pretty?: boolean;
+}
+
+// ── Full config interface ──────────────────────────────────────────────────────
+
 export interface NyxMindClawConfig {
+  // Legacy flat fields (still supported)
   llm: {
     provider: LlmProvider;
     apiKey: string;
@@ -35,20 +174,29 @@ export interface NyxMindClawConfig {
     allowedUserIds: string[];
   };
   channels: {
-    telegram?: {
-      botToken: string;
-      allowedIds: string[];
-    };
-    discord?: {
-      token: string;
-    };
-    whatsapp?: {
-      enabled: boolean;
-    };
+    telegram?: { botToken: string; allowedIds: string[] };
+    discord?: { token: string };
+    whatsapp?: { enabled: boolean };
   };
-  database?: {
-    url: string;
-  };
+  database?: { url: string };
+
+  // Env / Meta
+  nodeEnv?: 'development' | 'test' | 'production';
+  agentName?: string;
+  locale?: string;
+  workspace?: string;
+
+  // Openclaw structured sections
+  agents?: AgentsConfig;
+  models?: ModelsConfig;
+  gateway?: GatewayConfig;
+  session?: SessionConfig;
+  tools?: ToolsConfig;
+  hooks?: HooksConfig;
+  wizard?: WizardConfig;
+  plugins?: PluginsConfig;
+  telemetry?: TelemetryConfig;
+  logging?: LoggingConfig;
 }
 
 export interface ResolvedConfig extends Required<NyxMindClawConfig> {}
@@ -56,19 +204,10 @@ export interface ResolvedConfig extends Required<NyxMindClawConfig> {}
 // ── Defaults ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_CONFIG: ResolvedConfig = {
-  llm: {
-    provider: 'openai',
-    apiKey: '',
-    model: undefined,
-    baseUrl: undefined,
-  },
+  llm: { provider: 'openai', apiKey: '', model: undefined, baseUrl: undefined },
   iterations: 5,
   memoryWindow: 20,
-  dirs: {
-    data: './data',
-    tmp: './tmp',
-    skills: '.agents/skills',
-  },
+  dirs: { data: './data', tmp: './tmp', skills: '.agents/skills' },
   limits: {
     maxFileSizeMb: 20,
     maxAudioSizeMb: 10,
@@ -77,9 +216,24 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   },
   channels: {},
   database: { url: '' },
+  // Openclaw defaults
+  nodeEnv: 'development',
+  agentName: 'NyxMindClaw',
+  locale: 'en',
+  workspace: '.agents/workspace',
+  agents: { defaults: { workspace: '.agents/workspace' } },
+  models: { providers: {}, mode: 'merge' },
+  gateway: { mode: 'local', port: 18789, bind: 'lan', auth: { mode: 'token' } },
+  session: { dmScope: 'per-channel-peer' },
+  tools: { profile: 'general' },
+  hooks: { internal: { enabled: true, entries: {} } },
+  wizard: {},
+  plugins: { entries: {} },
+  telemetry: { enabled: false },
+  logging: { level: 'info', pretty: true },
 };
 
-// ── JSON file loading ────────────────────────────────────────────────────────
+// ── JSON file loading ──────────────────────────────────────────────────────────
 
 function findConfigPath(): string | null {
   let dir = process.cwd();
@@ -110,19 +264,8 @@ function loadJsonConfig(): Partial<NyxMindClawConfig> | null {
 // ── .env loading ─────────────────────────────────────────────────────────────
 
 function loadEnvConfig(): void {
-  const envPath = path.join(process.cwd(), '.env');
-  if (fs.existsSync(envPath)) {
-    dotenv.parse(fs.readFileSync(envPath, 'utf-8'));
-  }
-  const rootEnv = path.join(process.cwd(), '..', '..', '.env');
-  if (fs.existsSync(rootEnv)) {
-    dotenv.parse(fs.readFileSync(rootEnv, 'utf-8'));
-  }
-  try {
-    require('dotenv/config');
-  } catch {
-    // dotenv not available in some contexts
-  }
+  dotenv.config({ path: path.join(process.cwd(), '.env') });
+  dotenv.config({ path: path.join(process.cwd(), '..', '..', '.env') });
 }
 
 // ── Env → partial config mapping ─────────────────────────────────────────────
@@ -149,8 +292,8 @@ function envToPartialConfig(): Partial<NyxMindClawConfig> {
       maxFileSizeMb: process.env.MAX_FILE_MB ? parseInt(process.env.MAX_FILE_MB, 10) : 20,
       maxAudioSizeMb: process.env.MAX_AUDIO_MB ? parseInt(process.env.MAX_AUDIO_MB, 10) : 10,
       rateLimitPerMinute: process.env.RATE_LIMIT_PER_MINUTE ? parseInt(process.env.RATE_LIMIT_PER_MINUTE, 10) : 20,
-      allowedUserIds: process.env.ALLOWED_USER_IDS
-        ? process.env.ALLOWED_USER_IDS.split(',').map(s => s.trim()).filter(Boolean)
+      allowedUserIds: process.env.GLOBAL_ALLOWED_IDS
+        ? process.env.GLOBAL_ALLOWED_IDS.split(',').map(s => s.trim()).filter(Boolean)
         : [],
     },
     channels: {
@@ -160,20 +303,56 @@ function envToPartialConfig(): Partial<NyxMindClawConfig> {
           ? process.env.TELEGRAM_ALLOWED_IDS.split(',').map(s => s.trim()).filter(Boolean)
           : [],
       } : undefined,
-      discord: process.env.DISCORD_TOKEN ? {
-        token: process.env.DISCORD_TOKEN,
-      } : undefined,
-      whatsapp: process.env.WHATSAPP_ENABLED ? {
-        enabled: process.env.WHATSAPP_ENABLED === 'true',
-      } : undefined,
+      discord: process.env.DISCORD_TOKEN ? { token: process.env.DISCORD_TOKEN } : undefined,
+      whatsapp: process.env.WHATSAPP_ENABLED ? { enabled: process.env.WHATSAPP_ENABLED === 'true' } : undefined,
     },
-    database: (process.env.MONGODB_URI || process.env.MONGO_URI) ? {
-      url: process.env.MONGODB_URI || process.env.MONGO_URI || '',
-    } : undefined,
+    database: process.env.DATABASE_URL ? { url: process.env.DATABASE_URL } : undefined,
+    // Openclaw fields from env
+    nodeEnv: (process.env.NODE_ENV as 'development' | 'test' | 'production') || undefined,
+    agentName: process.env.AGENT_NAME || undefined,
+    locale: process.env.LOCALE || undefined,
+    workspace: process.env.WORKSPACE || undefined,
+    gateway: {
+      port: process.env.GATEWAY_PORT ? parseInt(process.env.GATEWAY_PORT, 10) : undefined,
+      bind: (process.env.GATEWAY_BIND as 'localhost' | 'lan' | '0.0.0.0') || undefined,
+      mode: (process.env.GATEWAY_MODE as 'local' | 'lan' | 'public') || undefined,
+      auth: process.env.GATEWAY_AUTH_TOKEN ? { mode: 'token', token: process.env.GATEWAY_AUTH_TOKEN } : undefined,
+    },
+    session: {
+      dmScope: (process.env.SESSION_DM_SCOPE as 'per-channel-peer' | 'global' | 'per-guild') || undefined,
+    },
+    tools: {
+      profile: (process.env.TOOLS_PROFILE as 'coding' | 'general' | 'research') || undefined,
+      web: {
+        search: {
+          provider: process.env.WEB_SEARCH_PROVIDER || undefined,
+          enabled: process.env.WEB_SEARCH_ENABLED !== undefined
+            ? process.env.WEB_SEARCH_ENABLED === 'true'
+            : undefined,
+        },
+        fetch: {
+          enabled: process.env.WEB_FETCH_ENABLED !== undefined
+            ? process.env.WEB_FETCH_ENABLED === 'true'
+            : undefined,
+        },
+      },
+    },
+    logging: {
+      level: (process.env.LOG_LEVEL as LogLevel) || undefined,
+      pretty: process.env.LOG_PRETTY !== undefined
+        ? process.env.LOG_PRETTY === 'true'
+        : undefined,
+    },
+    telemetry: {
+      enabled: process.env.TELEMETRY_ENABLED !== undefined
+        ? process.env.TELEMETRY_ENABLED === 'true'
+        : undefined,
+      endpoint: process.env.TELEMETRY_ENDPOINT || undefined,
+    },
   };
 }
 
-// ── Deep merge ────────────────────────────────────────────────────────────────
+// ── Deep merge (handles arrays by replacing, not merging) ────────────────────
 
 function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
   const result = { ...target };
@@ -185,7 +364,8 @@ function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial
         typeof sv === 'object' &&
         !Array.isArray(sv) &&
         typeof target[key] === 'object' &&
-        target[key] !== null
+        target[key] !== null &&
+        !Array.isArray(target[key])
       ) {
         (result as Record<string, unknown>)[key as string] = deepMerge(
           target[key] as Record<string, unknown>,
@@ -199,7 +379,7 @@ function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial
   return result;
 }
 
-// ── Singleton config ──────────────────────────────────────────────────────────
+// ── Singleton config ─────────────────────────────────────────────────────────
 
 let cachedConfig: ResolvedConfig | null = null;
 
@@ -211,11 +391,8 @@ export function loadConfig(): ResolvedConfig {
   const jsonConfig = loadJsonConfig();
   const envConfig = envToPartialConfig();
 
-  const merged = jsonConfig
-    ? deepMerge(deepMerge(envConfig, jsonConfig), {})
-    : envConfig;
-
-  cachedConfig = deepMerge(DEFAULT_CONFIG, merged as Partial<ResolvedConfig>);
+  const base = deepMerge(envConfig, jsonConfig ?? {});
+  cachedConfig = deepMerge(DEFAULT_CONFIG, base as Partial<ResolvedConfig>);
   return cachedConfig;
 }
 
@@ -249,6 +426,26 @@ export function getChannels() {
 
 export function getDatabaseUrl(): string | undefined {
   return loadConfig().database?.url;
+}
+
+export function getGateway() {
+  return loadConfig().gateway;
+}
+
+export function getSession() {
+  return loadConfig().session;
+}
+
+export function getTools() {
+  return loadConfig().tools;
+}
+
+export function getLogging() {
+  return loadConfig().logging;
+}
+
+export function getTelemetry() {
+  return loadConfig().telemetry;
 }
 
 export function resetConfig(): void {
