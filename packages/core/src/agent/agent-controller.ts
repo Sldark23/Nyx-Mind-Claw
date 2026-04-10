@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import { ProviderFactory, configFromEnv, ProviderConfig } from '../llm';
 import { ToolRegistry } from '../tools';
-import { SkillLoader } from '../skills/loader';
+import { SkillLoader, SkillMeta } from '../skills/loader';
 import { SkillRouter } from '../skills/router';
 import { SkillExecutor } from '../skills/executor';
 import { AgentLoop } from './agent-loop';
 import { MemoryManager } from '../memory';
 import { ChannelType } from './types';
+import { SkillRegistry, getRegistry } from '../skills/verifier';
 
 const ALLOWED_USER_IDS = (process.env.ALLOWED_USER_IDS || '')
   .split(',')
@@ -84,13 +85,17 @@ export class AgentController {
 
     this.memory.addMessage(convoId, 'user', input);
 
-    const skills = this.loader.loadAll();
-    let output: string;
+    // Load ALL skills from disk
+    const allSkills = this.loader.loadAll();
+    // Filter to only approved skills (bundled + verified)
+    const registry = getRegistry();
+    const approvedSkills = allSkills.filter(s => registry.isApproved(s.name));
 
-    if (skills.length > 0) {
-      const skillName = await this.router.route(input, skills);
+    let output: string;
+    if (approvedSkills.length > 0) {
+      const skillName = await this.router.route(input, approvedSkills);
       if (skillName) {
-        const skill = skills.find(s => s.name === skillName);
+        const skill = approvedSkills.find(s => s.name === skillName);
         if (skill) {
           console.log(`[Controller:skill] Routed to skill="${skillName}"`);
           const executor = new SkillExecutor(this.loop);

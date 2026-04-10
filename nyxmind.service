@@ -1,0 +1,14 @@
+[Unit]
+Description=NyxMind Agent Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nyxmind run
+Restart=always
+RestartSec=10
+WorkingDirectory=/root/nyxmind-corp/Nyx-Mind-Claw
+
+[Install]
+WantedBy=default.target
