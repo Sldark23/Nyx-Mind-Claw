@@ -1,0 +1,1 @@
+export { registerCompletionsCommand } from './register';

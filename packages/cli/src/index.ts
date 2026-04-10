@@ -9,6 +9,7 @@ import { registerUpdateCommand } from './commands/update/index';
 import { registerDoctorCommand } from './commands/doctor/index';
 import { registerSkillsCommand } from './commands/skills/register';
 import { registerConfigCommand } from './commands/config/register';
+import { registerCompletionsCommand } from './commands/completions/index';
 
 const program = new Command();
 
@@ -22,5 +23,6 @@ registerUpdateCommand(program);
 registerDoctorCommand(program);
 registerSkillsCommand(program);
 registerConfigCommand(program);
+registerCompletionsCommand(program);
 
 program.parse(process.argv);

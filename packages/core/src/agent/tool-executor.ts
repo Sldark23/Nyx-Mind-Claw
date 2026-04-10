@@ -15,27 +15,10 @@ export class ToolExecutor {
   async execute(call: ToolCall): Promise<string> {
     const { registry } = this.deps;
 
-    switch (call.tool) {
-      case 'shell':
-        return registry.shell(call.args.command as string);
-
-      case 'read_file':
-        return registry.readFile(call.args.path as string);
-
-      case 'write_file':
-        return registry.writeFile(
-          call.args.path as string,
-          call.args.content as string
-        );
-
-      case 'web_search':
-        return registry.searchWeb(call.args.query as string);
-
-      case 'web_fetch':
-        return registry.fetchUrl(call.args.url as string);
-
-      default:
-        return `Unknown tool: "${call.tool}". Available tools: shell, read_file, write_file, web_search, web_fetch`;
+    try {
+      return await registry.execute(call.tool, call.args as Record<string, unknown>);
+    } catch (err: any) {
+      return `Tool error: ${err.message}`;
     }
   }
 }
