@@ -1,5 +1,22 @@
 export { ConfigManager } from './manager';
-export type { NyxMindConfig, ConfigSource } from './types';
+export type {
+  NyxMindClawJsonConfig,
+  MetaConfig,
+  ModelsConfig,
+  ModelsProviderConfig,
+  ModelEntry,
+  AgentDefaults,
+  GatewayConfig,
+  SessionConfig,
+  ToolsConfig,
+  HooksConfig,
+  WizardConfig,
+  PluginsConfig,
+  ChannelsConfig,
+  TelemetryConfig,
+  LoggingConfig,
+  LogLevel,
+} from './types';
 export {
   loadConfig,
   getConfig,
@@ -10,8 +27,15 @@ export {
   getLimits,
   getChannels,
   getDatabaseUrl,
+  getGateway,
+  getSession,
+  getTools,
+  getLogging,
+  getTelemetry,
   resetConfig,
   type NyxMindClawConfig,
   type ResolvedConfig,
   type LlmProvider,
+  type ModelCost,
+  type ModelEntry as ModelEntryType,
 } from './claw-config';
