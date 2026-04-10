@@ -1,4 +1,4 @@
-import { MarketplaceRegistry } from '@nyxmind/core';
+import { MarketplaceRegistry, getDirs } from '@nyxmind/core';
 import { SkillLoader } from '@nyxmind/core';
 import fs from 'fs';
 import path from 'path';
@@ -6,7 +6,9 @@ import https from 'https';
 import http from 'http';
 import chalk from 'chalk';
 
-const SKILLS_DIR = process.env.SKILLS_DIR || '.agents/skills';
+function getSkillsDir() {
+  return getDirs().skills;
+}
 
 function fetch(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -35,16 +37,16 @@ export async function installSkill(name: string): Promise<void> {
     process.exit(1);
   }
 
-  const loader = new SkillLoader(SKILLS_DIR);
+  const loader = new SkillLoader(getSkillsDir());
   const installed = loader.loadAll();
   if (installed.some(s => s.name === name)) {
     console.log(`${chalk.yellow('⚠')} Skill "${name}" is already installed.`);
     return;
   }
 
-  const skillDir = path.join(SKILLS_DIR, name);
-  if (!fs.existsSync(SKILLS_DIR)) {
-    fs.mkdirSync(SKILLS_DIR, { recursive: true });
+  const skillDir = path.join(getSkillsDir(), name);
+  if (!fs.existsSync(getSkillsDir())) {
+    fs.mkdirSync(getSkillsDir(), { recursive: true });
   }
   if (!fs.existsSync(skillDir)) {
     fs.mkdirSync(skillDir, { recursive: true });

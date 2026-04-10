@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { TelegramAdapter, DiscordAdapter, WhatsAppAdapter, ChannelAdapter } from '@nyxmind/channels';
 import { createControllerFromEnv } from '../../lib/controller';
+import { getConfig } from '@nyxmind/core';
 
 export function registerRunCommand(program: Command): void {
   program
@@ -8,42 +9,38 @@ export function registerRunCommand(program: Command): void {
     .description('Run NyxMindClaw with all configured channels')
     .action(async () => {
       const controller = createControllerFromEnv();
+      const cfg = getConfig();
       const adapters: ChannelAdapter[] = [];
 
-      if (process.env.TELEGRAM_BOT_TOKEN) {
-        const allowedIds = (process.env.TELEGRAM_ALLOWED_IDS || '')
-          .split(',')
-          .map(v => v.trim())
-          .filter(Boolean);
-
+      if (cfg.channels.telegram?.botToken) {
         const telegram = new TelegramAdapter(
-          process.env.TELEGRAM_BOT_TOKEN,
+          cfg.channels.telegram.botToken,
           controller,
-          allowedIds
+          cfg.channels.telegram.allowedIds
         );
         await telegram.start();
         adapters.push(telegram);
         console.log('✅ Telegram adapter started');
       } else {
-        console.log('ℹ️  TELEGRAM_BOT_TOKEN not set, skipping Telegram');
+        console.log('ℹ️  telegram not configured, skipping Telegram');
       }
 
-      if (process.env.DISCORD_TOKEN) {
-        const discord = new DiscordAdapter(process.env.DISCORD_TOKEN, controller);
+      if (cfg.channels.discord?.token) {
+        const discord = new DiscordAdapter(cfg.channels.discord.token, controller);
         await discord.start();
         adapters.push(discord);
         console.log('✅ Discord adapter started');
       } else {
-        console.log('ℹ️  DISCORD_TOKEN not set, skipping Discord');
+        console.log('ℹ️  discord not configured, skipping Discord');
       }
 
-      if (process.env.WHATSAPP_ENABLED === 'true') {
+      if (cfg.channels.whatsapp?.enabled) {
         const whatsapp = new WhatsAppAdapter(controller);
         await whatsapp.start();
         adapters.push(whatsapp);
         console.log('✅ WhatsApp adapter started');
       } else {
-        console.log('ℹ️  WHATSAPP_ENABLED != true, skipping WhatsApp');
+        console.log('ℹ️  whatsapp not enabled, skipping WhatsApp');
       }
 
       console.log('\n🚀 NyxMindClaw running. Press Ctrl+C to stop.\n');

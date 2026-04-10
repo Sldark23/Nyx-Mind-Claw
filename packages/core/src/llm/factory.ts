@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { Ollama } from 'ollama';
@@ -7,6 +6,7 @@ import { ChatMessage } from '../agent/types';
 import { ProviderConfig } from './config';
 import { Provider } from './constants';
 import { defaultBaseUrl, defaultModel } from './defaults';
+import { getLlmConfig } from '../config';
 
 export class ProviderFactory {
   constructor(private cfg: ProviderConfig) {}
@@ -66,7 +66,8 @@ export class ProviderFactory {
   }
 
   private async chatGemini(messages: ChatMessage[]): Promise<string> {
-    const apiKey = this.cfg.apiKey || process.env.GEMINI_API_KEY || process.env.LLM_API_KEY || '';
+    const llmConfig = getLlmConfig();
+    const apiKey = this.cfg.apiKey || llmConfig.apiKey || process.env.GEMINI_API_KEY || '';
     if (!apiKey) throw new Error('GEMINI_API_KEY not set');
     const model = this.cfg.model || 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;

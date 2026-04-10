@@ -1,10 +1,11 @@
-import { ProviderConfig } from '@nyxmind/core';
+import { ProviderConfig, getLlmConfig } from '@nyxmind/core';
 
 export function getProviderConfigFromEnv(): ProviderConfig {
+  const cfg = getLlmConfig();
   return {
-    provider: (process.env.LLM_PROVIDER as ProviderConfig['provider']) || 'openai',
-    apiKey: process.env.LLM_API_KEY,
-    baseUrl: process.env.LLM_BASE_URL,
-    model: process.env.LLM_MODEL,
+    provider: cfg.provider,
+    apiKey: cfg.apiKey,
+    baseUrl: cfg.baseUrl,
+    model: cfg.model,
   };
 }

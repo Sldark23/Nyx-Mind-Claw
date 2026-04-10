@@ -1,8 +1,7 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
-
-const MEMORY_WINDOW = parseInt(process.env.MEMORY_WINDOW_SIZE || '20', 10);
+import { getConfig } from '../config';
 
 export interface Conversation {
   id: string;
@@ -66,10 +65,11 @@ export class MemoryManager {
     this.truncate(conversationId);
   }
 
-  getRecent(conversationId: string, limit = MEMORY_WINDOW): Message[] {
+  getRecent(conversationId: string, limit?: number): Message[] {
+    const memoryWindow = limit ?? getConfig().memoryWindow;
     const rows = this.db.prepare(
       'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?'
-    ).all(conversationId, limit) as Message[];
+    ).all(conversationId, memoryWindow) as Message[];
     return rows.reverse();
   }
 
@@ -78,8 +78,9 @@ export class MemoryManager {
       'SELECT COUNT(*) as c FROM messages WHERE conversation_id = ?'
     ).get(conversationId) as { c: number };
 
-    if (count.c > MEMORY_WINDOW) {
-      const toDelete = count.c - MEMORY_WINDOW;
+    const memoryWindow = getConfig().memoryWindow;
+    if (count.c > memoryWindow) {
+      const toDelete = count.c - memoryWindow;
       this.db.prepare(
         'DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE conversation_id = ? ORDER BY id ASC LIMIT ?)'
       ).run(conversationId, toDelete);

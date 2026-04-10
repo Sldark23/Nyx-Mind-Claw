@@ -13,8 +13,6 @@ import { LlmCall } from './llm-call';
 import { ToolParser } from './tool-parser';
 import { ToolExecutor } from './tool-executor';
 
-const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '5', 10);
-
 export interface AgentLoopConfig {
   llm: ProviderFactory;
   tools: ToolRegistry;
@@ -31,7 +29,7 @@ export class AgentLoop {
   private readonly onIteration?: AgentLoopConfig['onIteration'];
 
   constructor(config: AgentLoopConfig) {
-    this.maxIterations = config.maxIterations ?? MAX_ITERATIONS;
+    this.maxIterations = config.maxIterations ?? 5;
     this.llmCall = new LlmCall(config.llm);
     this.parser = new ToolParser();
     this.executor = new ToolExecutor({ registry: config.tools });

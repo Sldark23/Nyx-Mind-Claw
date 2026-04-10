@@ -1,0 +1,36 @@
+{
+  "llm": {
+    "provider": "openai",
+    "apiKey": "",
+    "model": "gpt-4o-mini",
+    "baseUrl": ""
+  },
+  "iterations": 5,
+  "memoryWindow": 20,
+  "dirs": {
+    "data": "./data",
+    "tmp": "./tmp",
+    "skills": ".agents/skills"
+  },
+  "limits": {
+    "maxFileSizeMb": 20,
+    "maxAudioSizeMb": 10,
+    "rateLimitPerMinute": 20,
+    "allowedUserIds": []
+  },
+  "channels": {
+    "telegram": {
+      "botToken": "",
+      "allowedIds": []
+    },
+    "discord": {
+      "token": ""
+    },
+    "whatsapp": {
+      "enabled": false
+    }
+  },
+  "database": {
+    "url": "mongodb://localhost:27017/nyxmind"
+  }
+}

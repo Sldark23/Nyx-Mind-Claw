@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { ProviderFactory, configFromEnv, ProviderConfig } from '../llm';
 import { ToolRegistry } from '../tools';
 import { SkillLoader, SkillMeta } from '../skills/loader';
@@ -8,13 +7,7 @@ import { AgentLoop } from './agent-loop';
 import { MemoryManager } from '../memory';
 import { ChannelType } from './types';
 import { SkillRegistry, getRegistry } from '../skills/verifier';
-
-const ALLOWED_USER_IDS = (process.env.ALLOWED_USER_IDS || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-
-const MAX_ITERATIONS = parseInt(process.env.MAX_ITERATIONS || '5', 10);
+import { getConfig } from '../config';
 
 interface RateLimitEntry {
   count: number;
@@ -31,21 +24,24 @@ export class AgentController {
   private rateLimitMap = new Map<string, RateLimitEntry>();
 
   constructor(cfg?: ProviderConfig) {
-    const config = cfg || configFromEnv();
-    this.llm = new ProviderFactory(config);
+    const cfg_ = cfg || configFromEnv();
+    const fullConfig = getConfig();
+    this.llm = new ProviderFactory(cfg_);
     this.tools = new ToolRegistry();
     this.loader = new SkillLoader();
     this.memory = new MemoryManager();
     this.router = new SkillRouter(this.llm);
-    this.loop = new AgentLoop({ llm: this.llm, tools: this.tools, maxIterations: MAX_ITERATIONS });
+    this.loop = new AgentLoop({ llm: this.llm, tools: this.tools, maxIterations: fullConfig.iterations });
   }
 
   isWhitelisted(userId: string): boolean {
-    if (ALLOWED_USER_IDS.length === 0) return true;
-    return ALLOWED_USER_IDS.includes(userId);
+    const allowedUserIds = getConfig().limits.allowedUserIds;
+    if (allowedUserIds.length === 0) return true;
+    return allowedUserIds.includes(userId);
   }
 
-  checkRateLimit(userId: string, limit = 20, windowMs = 60000): boolean {
+  checkRateLimit(userId: string, limit?: number, windowMs = 60000): boolean {
+    const rateLimit = limit ?? getConfig().limits.rateLimitPerMinute;
     const now = Date.now();
     const entry = this.rateLimitMap.get(userId);
 
@@ -54,7 +50,7 @@ export class AgentController {
       return true;
     }
 
-    if (entry.count >= limit) {
+    if (entry.count >= rateLimit) {
       return false;
     }
 

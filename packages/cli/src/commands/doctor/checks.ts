@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { testLlmConnection } from '../../lib/llm-test';
-import { ProviderConfig } from '@nyxmind/core';
+import { ProviderConfig, getConfig, getLlmConfig } from '@nyxmind/core';
 
 export interface CheckResult {
   ok: boolean;
@@ -58,16 +58,39 @@ export function checkNpmDeps(): CheckResult {
   }
 }
 
-// ── 3. .env file ──────────────────────────────────────────────────────────────
+// ── 3. Config file (nyxmind-claw.json / .env) ─────────────────────────────────
 
 const REQUIRED_ENV_VARS = ['LLM_PROVIDER', 'LLM_API_KEY'];
 
 export function checkEnvFile(): CheckResult {
+  // Check for nyxmind-claw.json
+  const jsonPath = path.join(process.cwd(), 'nyxmind-claw.json');
+  const jsonExists = fs.existsSync(jsonPath);
+
   const envPath = path.join(process.cwd(), '.env');
-  if (!fs.existsSync(envPath)) {
-    return fail('.env file', '.env not found in current directory', 'cp .env.example .env  OR  nyxmind onboard');
+  const envExists = fs.existsSync(envPath);
+
+  if (!jsonExists && !envExists) {
+    return fail('Config', 'Neither nyxmind-claw.json nor .env found', 'cp nyxmind-claw.json.example nyxmind-claw.json  OR  cp .env.example .env');
   }
 
+  if (jsonExists) {
+    try {
+      const content = fs.readFileSync(jsonPath, 'utf-8');
+      const cfg = JSON.parse(content);
+      const missing: string[] = [];
+      if (!cfg.llm?.provider) missing.push('llm.provider');
+      if (!cfg.llm?.apiKey) missing.push('llm.apiKey');
+      if (missing.length > 0) {
+        return fail('Config', `nyxmind-claw.json missing: ${missing.join(', ')}`, 'Edit nyxmind-claw.json and fill in the missing fields');
+      }
+      return pass('Config', `nyxmind-claw.json found — ${cfg.llm.provider} provider configured`);
+    } catch {
+      return fail('Config', 'nyxmind-claw.json is invalid JSON', 'Fix JSON syntax in nyxmind-claw.json');
+    }
+  }
+
+  // Fall back to .env check
   const content = fs.readFileSync(envPath, 'utf-8');
   const missing: string[] = [];
 
@@ -91,9 +114,10 @@ export function checkEnvFile(): CheckResult {
 // ── 4. MongoDB connectivity ───────────────────────────────────────────────────
 
 export function checkMongoDB(): CheckResult {
-  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const cfg = getConfig();
+  const mongoUri = cfg.database?.url || process.env.MONGODB_URI || process.env.MONGO_URI;
   if (!mongoUri) {
-    return warn('MongoDB', 'MONGODB_URI not set in .env', 'Add MONGODB_URI to .env (nyxmind onboard can help)');
+    return warn('MongoDB', 'database.url not set in nyxmind-claw.json', 'Add database.url to nyxmind-claw.json (nyxmind onboard can help)');
   }
 
   try {
@@ -104,36 +128,36 @@ export function checkMongoDB(): CheckResult {
     return pass('MongoDB', 'Connection successful');
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return fail('MongoDB', `Connection failed: ${msg}`, 'Check MONGODB_URI in .env and ensure MongoDB is running');
+    return fail('MongoDB', `Connection failed: ${msg}`, 'Check database.url in nyxmind-claw.json and ensure MongoDB is running');
   }
 }
 
 // ── 5. LLM API key ────────────────────────────────────────────────────────────
 
 export async function checkLlmConnection(): Promise<CheckResult> {
-  const provider = process.env.LLM_PROVIDER;
-  const apiKey = process.env.LLM_API_KEY;
+  const llmConfig = getLlmConfig();
 
-  if (!provider || !apiKey) {
-    return warn('LLM provider', 'LLM_PROVIDER or LLM_API_KEY not set', 'nyxmind onboard');
+  if (!llmConfig.provider || !llmConfig.apiKey) {
+    return warn('LLM provider', 'llm.provider or llm.apiKey not set in nyxmind-claw.json', 'nyxmind onboard');
   }
 
   const cfg: ProviderConfig = {
-    provider: provider as ProviderConfig['provider'],
-    apiKey,
-    baseUrl: process.env.LLM_BASE_URL || undefined,
-    model: process.env.LLM_MODEL || undefined,
+    provider: llmConfig.provider,
+    apiKey: llmConfig.apiKey,
+    baseUrl: llmConfig.baseUrl,
+    model: llmConfig.model,
   };
 
   const { ok, error } = await testLlmConnection(cfg);
-  if (ok) return pass('LLM provider', `${provider} — connection OK`);
-  return fail('LLM provider', `Connection failed: ${error}`, 'Check LLM_API_KEY and LLM_PROVIDER in .env');
+  if (ok) return pass('LLM provider', `${llmConfig.provider} — connection OK`);
+  return fail('LLM provider', `Connection failed: ${error}`, 'Check llm.apiKey in nyxmind-claw.json');
 }
 
 // ── 6. Skills directory ───────────────────────────────────────────────────────
 
 export function checkSkillsDir(): CheckResult {
-  const skillsDir = process.env.SKILLS_DIR || '.agents/skills';
+  const cfg = getConfig();
+  const skillsDir = cfg.dirs.skills;
   if (!fs.existsSync(skillsDir)) {
     return warn('Skills dir', `${skillsDir} does not exist`, 'mkdir -p .agents/skills');
   }
@@ -144,8 +168,9 @@ export function checkSkillsDir(): CheckResult {
 // ── 7. Data/tmp directories ─────────────────────────────────────────────────
 
 export function checkDirs(): CheckResult {
-  const dataDir = process.env.DATA_DIR || './data';
-  const tmpDir = process.env.TMP_DIR || './tmp';
+  const cfg = getConfig();
+  const dataDir = cfg.dirs.data;
+  const tmpDir = cfg.dirs.tmp;
   const missing: string[] = [];
 
   if (!fs.existsSync(dataDir)) missing.push(dataDir);
@@ -154,20 +179,19 @@ export function checkDirs(): CheckResult {
   if (missing.length > 0) {
     return warn('Directories', `${missing.join(', ')} missing`, `mkdir -p ${missing.join(' ')}`);
   }
-  return pass('Directories', 'DATA_DIR and TMP_DIR exist');
+  return pass('Directories', 'data and tmp directories exist');
 }
 
 // ── 8. Channel tokens ────────────────────────────────────────────────────────
 
 export function checkChannelTokens(): CheckResult {
-  const discord = process.env.DISCORD_TOKEN;
-  const telegram = process.env.TELEGRAM_BOT_TOKEN;
-  const whatsapp = process.env.WHATSAPP_ENABLED;
+  const cfg = getConfig();
+  const channels = cfg.channels;
 
   const configured: string[] = [];
-  if (discord) configured.push('Discord');
-  if (telegram) configured.push('Telegram');
-  if (whatsapp === 'true') configured.push('WhatsApp');
+  if (channels.discord?.token) configured.push('Discord');
+  if (channels.telegram?.botToken) configured.push('Telegram');
+  if (channels.whatsapp?.enabled) configured.push('WhatsApp');
 
   if (configured.length === 0) {
     return warn('Channel tokens', 'No channel configured — bot will run in CLI-only mode');

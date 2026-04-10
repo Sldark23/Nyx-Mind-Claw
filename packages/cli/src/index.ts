@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import 'dotenv/config';
 import { Command } from 'commander';
 import { registerInitCommand } from './commands/init/index';
 import { registerOnboardCommand } from './commands/onboard/index';
@@ -10,6 +9,8 @@ import { registerDoctorCommand } from './commands/doctor/index';
 import { registerSkillsCommand } from './commands/skills/register';
 import { registerConfigCommand } from './commands/config/register';
 import { registerCompletionsCommand } from './commands/completions/index';
+// Ensure config system is loaded (triggers dotenv + nyxmind-claw.json loading)
+import '@nyxmind/core';
 
 const program = new Command();
 
