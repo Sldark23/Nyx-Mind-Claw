@@ -7,7 +7,8 @@ import { AgentLoop } from './agent-loop';
 import { MemoryManager } from '../memory';
 import { ChannelType } from './types';
 import { SkillRegistry, getRegistry } from '../skills/verifier';
-import { getConfig } from '../config';
+import { getConfig, type ApprovalConfig } from '../config';
+import { ApprovalManager } from '../config/manager';
 import {
   nextBootstrapQuestion,
   buildBootstrapPrompt,
@@ -29,6 +30,7 @@ export class AgentController {
   private loop: AgentLoop;
   private router: SkillRouter;
   private rateLimitMap = new Map<string, RateLimitEntry>();
+  private approvalManager: ApprovalManager;
   // Bootstrap state per user: null = not in bootstrap, pending key = awaiting answer
   private bootstrapState = new Map<string, keyof BootstrapAnswers | 'confirming' | null>();
 
@@ -41,6 +43,7 @@ export class AgentController {
     this.memory = new MemoryManager();
     this.router = new SkillRouter(this.llm);
     this.loop = new AgentLoop({ llm: this.llm, tools: this.tools, maxIterations: fullConfig.iterations });
+    this.approvalManager = new ApprovalManager();
   }
 
   isWhitelisted(userId: string): boolean {
@@ -65,6 +68,68 @@ export class AgentController {
 
     entry.count++;
     return true;
+  }
+
+  /**
+   * Check if a tool requires approval.
+   * Returns { approved, requiresConfirmation } based on config mode and tool name.
+   * Tools matching dangerousTools patterns always need approval.
+   */
+  checkApproval(toolName: string): { approved: boolean; requiresConfirmation: boolean } {
+    const cfg = getConfig().approval as ApprovalConfig | undefined;
+    if (!cfg) {
+      return { approved: true, requiresConfirmation: false };
+    }
+
+    const { mode, dangerousTools, requireApprovalFor } = cfg;
+
+    // Helper: match a tool name against a list of glob-like patterns
+    const matches = (tool: string, patterns: string[]): boolean => {
+      return patterns.some(pattern => {
+        if (pattern === tool) return true;
+        if (pattern.endsWith('*')) {
+          const prefix = pattern.slice(0, -1);
+          return tool.startsWith(prefix);
+        }
+        if (pattern.startsWith('*')) {
+          const suffix = pattern.slice(1);
+          return tool.endsWith(suffix);
+        }
+        return false;
+      });
+    };
+
+    const isDangerous = matches(toolName, dangerousTools);
+    const requiresApproval = isDangerous || matches(toolName, requireApprovalFor);
+
+    switch (mode) {
+      case 'auto':
+        return { approved: true, requiresConfirmation: false };
+
+      case 'manual':
+        if (requiresApproval) {
+          const approved = this.approvalManager.isApproved(toolName);
+          if (!approved) {
+            this.approvalManager.addPending(toolName);
+          }
+          return { approved, requiresConfirmation: !approved };
+        }
+        return { approved: true, requiresConfirmation: false };
+
+      case 'confirmation':
+        if (requiresApproval) {
+          const approved = this.approvalManager.isApproved(toolName);
+          if (!approved) {
+            this.approvalManager.addPending(toolName);
+            return { approved: false, requiresConfirmation: true };
+          }
+          return { approved: true, requiresConfirmation: false };
+        }
+        return { approved: true, requiresConfirmation: false };
+
+      default:
+        return { approved: true, requiresConfirmation: false };
+    }
   }
 
   /**
@@ -165,6 +230,10 @@ export class AgentController {
     // ── Normal flow ───────────────────────────────────────────────────────
     this.memory.addMessage(convoId, 'user', input);
 
+    // Inject graph memory context into system prompt
+    const memoryContext = this.memory.buildMemoryContext(input);
+    const systemPrompt = this.tools.buildSystemPrompt() + (memoryContext ? `\n\n${memoryContext}` : '');
+
     const allSkills = this.loader.loadAll();
     const registry = getRegistry();
     const approvedSkills = allSkills.filter(s => registry.isApproved(s.name));
@@ -179,16 +248,20 @@ export class AgentController {
           const executor = new SkillExecutor(this.loop);
           output = await executor.execute(skill, input);
         } else {
-          output = await this.loop.run(input, this.tools.buildSystemPrompt());
+          output = await this.loop.run(input, systemPrompt);
         }
       } else {
-        output = await this.loop.run(input, this.tools.buildSystemPrompt());
+        output = await this.loop.run(input, systemPrompt);
       }
     } else {
-      output = await this.loop.run(input, this.tools.buildSystemPrompt());
+      output = await this.loop.run(input, systemPrompt);
     }
 
     this.memory.addMessage(convoId, 'assistant', output);
+
+    // Store interaction in graph memory for future recall
+    this.memory.addInteraction(convoId, userId, input, output);
+
     return { output };
   }
 
@@ -198,5 +271,9 @@ export class AgentController {
 
   getTools(): ToolRegistry {
     return this.tools;
+  }
+
+  getApprovalManager(): ApprovalManager {
+    return this.approvalManager;
   }
 }

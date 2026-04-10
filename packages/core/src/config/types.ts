@@ -196,6 +196,14 @@ export interface LoggingConfig {
   pretty?: boolean;
 }
 
+// ── Approval ─────────────────────────────────────────────────────────────────
+
+export interface ApprovalConfig {
+  mode: 'auto' | 'manual' | 'confirmation';
+  dangerousTools: string[];
+  requireApprovalFor: string[];
+}
+
 // ── Main nyxmind-claw.json root ─────────────────────────────────────────────
 
 export interface NyxMindClawJsonConfig {
@@ -211,6 +219,7 @@ export interface NyxMindClawJsonConfig {
   channels?: ChannelsConfig;
   telemetry?: TelemetryConfig;
   logging?: LoggingConfig;
+  approval?: ApprovalConfig;
 
   // Legacy flat fields (still supported for backward compat)
   nodeEnv?: 'development' | 'test' | 'production';

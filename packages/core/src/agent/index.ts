@@ -4,6 +4,8 @@ export { ToolParser } from './tool-parser';
 export { ToolExecutor } from './tool-executor';
 export { LlmCall } from './llm-call';
 export { SubAgentRunner } from './sub-agent';
+export { AgentTeam, CollaborativeDebate } from './multi-agent';
+export type { AgentRole, RoleDefinition, TaskResult, TeamResult, DebateResult } from './multi-agent';
 export {
   nextBootstrapQuestion,
   buildBootstrapPrompt,

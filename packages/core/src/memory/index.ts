@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { getConfig } from '../config';
 import type { BootstrapAnswers } from '../agent/bootstrap';
+import { GraphMemory, type Entity, type MemoryResult, type InteractionRecord, extractEntities } from './graph-memory';
 
 export interface Conversation {
   id: string;
@@ -26,12 +27,14 @@ const BOOTSTRAP_VERSION = 1;
 
 export class MemoryManager {
   private db: Database.Database;
+  private graph: GraphMemory;
 
   constructor(private dbPath = './data/nyxmind.db') {
     const dir = path.dirname(dbPath);
     if (dir) fs.mkdirSync(dir, { recursive: true });
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    this.graph = new GraphMemory(dbPath.replace('.db', '-graph.db'));
     this.init();
   }
 
@@ -112,6 +115,70 @@ export class MemoryManager {
     this.db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
   }
 
+  // ── Graph memory (entity extraction + episodic/semantic) ─────────────────────
+
+  getGraph(): GraphMemory {
+    return this.graph;
+  }
+
+  /** Extract entities from content and store in graph memory. */
+  extractEntities(conversationId: string, content: string): Entity[] {
+    const candidates = extractEntities(content);
+    const stored: Entity[] = [];
+    for (const cand of candidates) {
+      const e = this.graph.getOrCreateEntity(cand.name, cand.type);
+      stored.push(e);
+    }
+    return stored;
+  }
+
+  /** Add an episodic record after an interaction. */
+  addInteraction(conversationId: string, userId: string, userMessage: string, assistantMessage: string): void {
+    // Extract entities from both messages
+    const userEntities = extractEntities(userMessage);
+    const assistantEntities = extractEntities(assistantMessage);
+    const allEntities = [...userEntities, ...assistantEntities];
+
+    const entityIds: string[] = [];
+    for (const cand of allEntities) {
+      const e = this.graph.getOrCreateEntity(cand.name, cand.type);
+      entityIds.push(e.id);
+    }
+
+    // Build summary from first 100 chars of user message
+    const summary = userMessage.slice(0, 120) + (userMessage.length > 120 ? '...' : '');
+    this.graph.addEpisodic(conversationId, userId, summary, entityIds);
+
+    // Add "talked_to" relationships between user and extracted entities
+    for (const e of entityIds) {
+      // Link user to entity
+      const userEntity = this.graph.getOrCreateEntity(userId, 'person');
+      this.graph.upsertRelationship(userEntity.id, e, 'talked_about', 0.5);
+    }
+  }
+
+  /** Query graph memory for relevant context. */
+  queryMemory(query: string, topK = 5): MemoryResult[] {
+    return this.graph.search(query, topK);
+  }
+
+  /** Get all entities related to a given entity name. */
+  getRelatedEntities(entityName: string, limit = 10) {
+    const entity = this.graph.getEntityByName(entityName);
+    if (!entity) return [];
+    return this.graph.getRelatedEntities(entity.id, limit);
+  }
+
+  /** Build context string for system prompt injection. */
+  buildMemoryContext(query: string, maxChars = 2000): string {
+    return this.graph.buildContext(query, maxChars);
+  }
+
+  /** Consolidate graph memory (merge duplicates, compress old). */
+  consolidateMemory(): { merged: number; deleted: number } {
+    return this.graph.consolidate();
+  }
+
   // ── Bootstrap profile ──────────────────────────────────────────────────────
 
   getBootstrapProfile(userId: string): BootstrapProfile | null {
@@ -161,7 +228,10 @@ export class MemoryManager {
 
   close(): void {
     this.db.close();
+    this.graph.close();
   }
 }
 
 export { VectorStore } from './vector-store';
+export { GraphMemory } from './graph-memory';
+export type { Entity, MemoryResult, InteractionRecord } from './graph-memory';

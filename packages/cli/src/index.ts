@@ -8,7 +8,9 @@ import { registerUpdateCommand } from './commands/update/index';
 import { registerDoctorCommand } from './commands/doctor/index';
 import { registerSkillsCommand } from './commands/skills/register';
 import { registerConfigCommand } from './commands/config/register';
+import { registerApproveCommand } from './commands/approve/register';
 import { registerCompletionsCommand } from './commands/completions/index';
+import { registerTestCommand } from './commands/test/register';
 import { initTelemetry, shutdownTelemetry, trackCommandExecuted, trackCommandCompleted } from './lib/telemetry';
 // Ensure config system is loaded (triggers dotenv + nyxmind-claw.json loading)
 import '@nyxmind/core';
@@ -30,6 +32,8 @@ registerUpdateCommand(program);
 registerDoctorCommand(program);
 registerSkillsCommand(program);
 registerConfigCommand(program);
+registerApproveCommand(program);
 registerCompletionsCommand(program);
+registerTestCommand(program);
 
 program.parse(process.argv);

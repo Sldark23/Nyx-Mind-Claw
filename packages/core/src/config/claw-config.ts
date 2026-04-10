@@ -134,20 +134,28 @@ export interface WhatsAppConfig {
   enabled?: boolean;
 }
 
-// ── Telemetry (from openclaw) ────────────────────────────────────────────────
+// ── Telemetry (from openclaw) ───────────────────────────────────────────────
 
 export interface TelemetryConfig {
   enabled?: boolean;
   endpoint?: string;
 }
 
-// ── Logging ────────────────────────────────────────────────────────────────
+// ── Logging ───────────────────────────────────────────────────────────────
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface LoggingConfig {
   level?: LogLevel;
   pretty?: boolean;
+}
+
+// ── Approval ───────────────────────────────────────────────────────────────
+
+export interface ApprovalConfig {
+  mode: 'auto' | 'manual' | 'confirmation';
+  dangerousTools: string[];
+  requireApprovalFor: string[];
 }
 
 // ── Full config interface ──────────────────────────────────────────────────────
@@ -197,6 +205,7 @@ export interface NyxMindClawConfig {
   plugins?: PluginsConfig;
   telemetry?: TelemetryConfig;
   logging?: LoggingConfig;
+  approval?: ApprovalConfig;
 }
 
 export interface ResolvedConfig extends Required<NyxMindClawConfig> {}
@@ -231,6 +240,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   plugins: { entries: {} },
   telemetry: { enabled: false },
   logging: { level: 'info', pretty: true },
+  approval: { mode: 'auto', dangerousTools: [], requireApprovalFor: [] },
 };
 
 // ── JSON file loading ──────────────────────────────────────────────────────────

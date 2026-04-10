@@ -16,6 +16,7 @@ export type {
   TelemetryConfig,
   LoggingConfig,
   LogLevel,
+  ApprovalConfig,
 } from './types';
 export {
   loadConfig,
