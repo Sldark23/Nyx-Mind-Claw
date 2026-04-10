@@ -18,6 +18,15 @@ async function confirm(question: string, rl: readline.Interface, fallback = fals
   return val.trim().toLowerCase().startsWith('y');
 }
 
+async function choose(question: string, rl: readline.Interface, options: string[], fallback: string): Promise<string> {
+  console.log(question);
+  options.forEach((o, i) => console.log(`  ${i + 1}) ${o}`));
+  const val = await rl.question(`Choice [${fallback}]: `);
+  const idx = parseInt(val.trim(), 10) - 1;
+  if (!val.trim()) return fallback;
+  return options[Math.max(0, Math.min(options.length - 1, idx))] ?? fallback;
+}
+
 export function registerOnboardCommand(program: Command): void {
   program
     .command('onboard')
@@ -30,7 +39,7 @@ export function registerOnboardCommand(program: Command): void {
         console.log('─'.repeat(50));
 
         // ── LLM ──────────────────────────────────────────────
-        console.log('\n[1/6] LLM Provider\n');
+        console.log('\n[1/8] LLM Provider\n');
         console.log('Choose provider:');
         PROVIDERS.forEach((p, i) => console.log(`  ${i + 1}) ${p}`));
 
@@ -60,28 +69,35 @@ export function registerOnboardCommand(program: Command): void {
           console.log('');
         }
 
-        // ── Agent ────────────────────────────────────────────
-        console.log('\n[2/6] Agent Behaviour\n');
+        // ── Agent identity ──────────────────────────────────────
+        console.log('\n[2/8] Agent Identity\n');
+        const agentName = await ask('AGENT_NAME', rl, 'NyxMindClaw');
+        const nodeEnv = await choose('NODE_ENV', rl,
+          ['development', 'test', 'production'], 'development');
+
+        // ── Agent behaviour ──────────────────────────────────────
+        console.log('\n[3/8] Agent Behaviour\n');
         const maxIterations = await ask('MAX_ITERATIONS', rl, '10');
         const memoryWindow = await ask('MEMORY_WINDOW_SIZE', rl, '20');
         const locale = await ask('LOCALE (en, pt, es...)', rl, 'en');
+        const workspace = await ask('WORKSPACE', rl, '.agents/workspace');
 
         // ── Directories ───────────────────────────────────────
-        console.log('\n[3/6] Directories\n');
+        console.log('\n[4/8] Directories\n');
         const skillsDir = await ask('SKILLS_DIR', rl, '.agents/skills');
         const dataDir = await ask('DATA_DIR', rl, './data');
         const tmpDir = await ask('TMP_DIR', rl, './tmp');
 
         // ── Database ──────────────────────────────────────────
-        console.log('\n[4/6] Database\n');
+        console.log('\n[5/8] Database\n');
         console.log('Storage options:');
-        console.log('  1) MongoDB (default — needs Docker or local MongoDB)');
-        console.log('  2) Local file storage (SQLite-like, no DB needed)');
+        console.log('  1) Local file storage (no DB needed — recommended)');
+        console.log('  2) MongoDB (needs Docker or local MongoDB)');
         const dbChoice = await rl.question('Choice [1]: ');
         let dbUrl = '';
-        if (dbChoice.trim() === '2') {
+        if (dbChoice.trim() !== '2') {
           dbUrl = 'local';
-          console.log('✅ Using local file storage (no database required)');
+          console.log('✅ Using local file storage');
         } else {
           dbUrl = await ask('DATABASE_URL', rl, 'mongodb://localhost:27017/nyxmind');
           const mongoOk = await confirm('Start MongoDB via Docker if not running', rl, true);
@@ -89,15 +105,27 @@ export function registerOnboardCommand(program: Command): void {
         }
 
         // ── Security ───────────────────────────────────────────
-        console.log('\n[5/6] Security\n');
+        console.log('\n[6/8] Security\n');
         const whitelist = await rl.question('GLOBAL_ALLOWED_IDS (csv, Enter to skip): ');
         const maxFileSize = await ask('MAX_FILE_SIZE (bytes)', rl, '10485760');
         const maxAudioSize = await ask('MAX_AUDIO_SIZE (bytes)', rl, '5242880');
 
         // ── Channels ───────────────────────────────────────────
-        console.log('\n[6/6] Channels\n');
+        console.log('\n[7/8] Channels\n');
 
-        console.log('Telegram:');
+        console.log('Discord:');
+        const discordEnabled = await confirm('Enable Discord', rl, false);
+        let discordToken = '';
+        let discordRateLimit = '';
+        let discordGroupPolicy = '';
+        if (discordEnabled) {
+          discordToken = await rl.question('  DISCORD_TOKEN: ');
+          discordGroupPolicy = await choose('  DISCORD_GROUP_POLICY', rl,
+            ['allowlist', 'blocklist', 'all'], 'allowlist');
+          discordRateLimit = await ask('  DISCORD_RATE_LIMIT (req/min)', rl, '60');
+        }
+
+        console.log('\nTelegram:');
         const tgEnabled = await confirm('Enable Telegram', rl, false);
         let telegramBotToken = '';
         let telegramAllowedIds = '';
@@ -108,29 +136,27 @@ export function registerOnboardCommand(program: Command): void {
           telegramRateLimit = await ask('  TELEGRAM_RATE_LIMIT (req/min)', rl, '30');
         }
 
-        console.log('\nDiscord:');
-        const discordEnabled = await confirm('Enable Discord', rl, false);
-        let discordToken = '';
-        let discordRateLimit = '';
-        if (discordEnabled) {
-          discordToken = await rl.question('  DISCORD_TOKEN: ');
-          discordRateLimit = await ask('  DISCORD_RATE_LIMIT (req/min)', rl, '60');
-        }
-
         console.log('\nWhatsApp:');
         const whatsappEnabled = await confirm('Enable WhatsApp', rl, false);
 
-        // ── Telemetry ──────────────────────────────────────────
-        console.log('\n[Optional] Telemetry\n');
-        const telemetryEnabled = await confirm('Enable anonymous telemetry (helps improve NyxMindClaw)', rl, false);
+        // ── Tools, Logging, Telemetry ───────────────────────────
+        console.log('\n[8/8] Tools, Logging & Telemetry\n');
+        const toolsProfile = await choose('TOOLS_PROFILE', rl,
+          ['general', 'coding', 'research'], 'general');
+        const webSearchEnabled = await confirm('Enable web search', rl, true);
+        let webSearchProvider = '';
+        if (webSearchEnabled) {
+          webSearchProvider = await ask('  WEB_SEARCH_PROVIDER', rl, 'firecrawl');
+        }
+        const webFetchEnabled = await confirm('Enable web fetch', rl, true);
+        const logLevel = await choose('LOG_LEVEL', rl,
+          ['debug', 'info', 'warn', 'error'], 'info');
+        const logPretty = await confirm('LOG_PRETTY (pretty-print logs)', rl, true);
+        const telemetryEnabled = await confirm('Enable anonymous telemetry', rl, false);
         let telemetryEndpoint = '';
         if (telemetryEnabled) {
-          telemetryEndpoint = await rl.question('TELEMETRY_ENDPOINT (optional URL): ');
+          telemetryEndpoint = await rl.question('  TELEMETRY_ENDPOINT: ');
         }
-
-        // ── Logging ────────────────────────────────────────────
-        console.log('\n[Optional] Logging\n');
-        const logLevel = await ask('LOG_LEVEL (debug, info, warn, error)', rl, 'info');
 
         // ──────────────────────────────────────────────────────
         process.stdout.write('\n');
@@ -159,10 +185,19 @@ export function registerOnboardCommand(program: Command): void {
           discordEnabled,
           discordToken,
           discordRateLimit,
+          discordGroupPolicy,
           whatsappEnabled,
           telemetryEnabled,
           telemetryEndpoint,
           logLevel,
+          logPretty,
+          agentName,
+          nodeEnv,
+          workspace,
+          toolsProfile,
+          webSearchEnabled,
+          webSearchProvider,
+          webFetchEnabled,
         });
 
         fs.writeFileSync('.env', envLines);
