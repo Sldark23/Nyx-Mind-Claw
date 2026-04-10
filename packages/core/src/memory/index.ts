@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { getConfig } from '../config';
+import type { BootstrapAnswers } from '../agent/bootstrap';
 
 export interface Conversation {
   id: string;
@@ -14,6 +15,14 @@ export interface Message {
   role: string;
   content: string;
 }
+
+export interface BootstrapProfile {
+  version: number;
+  completedAt?: string;
+  answers: BootstrapAnswers;
+}
+
+const BOOTSTRAP_VERSION = 1;
 
 export class MemoryManager {
   private db: Database.Database;
@@ -43,6 +52,18 @@ export class MemoryManager {
         FOREIGN KEY (conversation_id) REFERENCES conversations(id)
       );
       CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id);
+      CREATE TABLE IF NOT EXISTS agent_profile (
+        user_id TEXT PRIMARY KEY,
+        version INTEGER,
+        completed_at TEXT,
+        agent_name TEXT,
+        agent_vibe TEXT,
+        agent_timezone TEXT,
+        user_name TEXT,
+        user_role TEXT,
+        user_timezone TEXT,
+        user_vibe TEXT
+      );
     `);
   }
 
@@ -89,6 +110,53 @@ export class MemoryManager {
 
   clearConversation(conversationId: string): void {
     this.db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
+  }
+
+  // ── Bootstrap profile ──────────────────────────────────────────────────────
+
+  getBootstrapProfile(userId: string): BootstrapProfile | null {
+    const row = this.db.prepare('SELECT * FROM agent_profile WHERE user_id = ?').get(userId) as {
+      user_id: string; version: number; completed_at: string | null;
+      agent_name: string | null; agent_vibe: string | null; agent_timezone: string | null;
+      user_name: string | null; user_role: string | null; user_timezone: string | null; user_vibe: string | null;
+    } | undefined;
+    if (!row) return null;
+    return {
+      version: row.version,
+      completedAt: row.completed_at ?? undefined,
+      answers: {
+        agentName: row.agent_name ?? undefined,
+        agentVibe: row.agent_vibe ?? undefined,
+        agentTimezone: row.agent_timezone ?? undefined,
+        userName: row.user_name ?? undefined,
+        userRole: row.user_role ?? undefined,
+        userTimezone: row.user_timezone ?? undefined,
+        userVibe: row.user_vibe ?? undefined,
+      },
+    };
+  }
+
+  saveBootstrapAnswer(userId: string, key: keyof BootstrapAnswers, value: string): void {
+    const colMap: Record<keyof BootstrapAnswers, string> = {
+      agentName: 'agent_name',
+      agentVibe: 'agent_vibe',
+      agentTimezone: 'agent_timezone',
+      userName: 'user_name',
+      userRole: 'user_role',
+      userTimezone: 'user_timezone',
+      userVibe: 'user_vibe',
+    };
+    const col = colMap[key];
+    if (!col) return;
+    // Upsert using replace
+    this.db.prepare(`INSERT OR REPLACE INTO agent_profile (user_id, version, ${col}) VALUES (?, ?, ?)`)
+      .run(userId, BOOTSTRAP_VERSION, value);
+  }
+
+  completeBootstrap(userId: string): void {
+    this.db.prepare(
+      'INSERT OR REPLACE INTO agent_profile (user_id, version, completed_at) VALUES (?, ?, ?)'
+    ).run(userId, BOOTSTRAP_VERSION, new Date().toISOString());
   }
 
   close(): void {
