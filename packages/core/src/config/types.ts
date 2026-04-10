@@ -7,23 +7,37 @@ export interface NyxMindConfig {
   llmProvider: string;
   llmApiKey: string;
   llmModel: string;
+  llmBaseUrl?: string;
   llmMaxIterations: number;
-  // Memory
+  // Agent
   memoryWindowSize: number;
-  databaseUrl: string;
-  // Skills & dirs
+  locale: string;
+  // Directories
   skillsDir: string;
   dataDir: string;
   tmpDir: string;
-  // Rate limits
+  // Database
+  databaseUrl: string;
+  // Security
   globalAllowedIds: string[];
   maxFileSize: number;
   maxAudioSize: number;
-  // Channels
+  // Channels — Telegram
+  telegramEnabled: boolean;
   telegramBotToken?: string;
   telegramAllowedIds: string[];
+  telegramRateLimit: number;
+  // Channels — Discord
+  discordEnabled: boolean;
   discordToken?: string;
+  discordRateLimit: number;
+  // Channels — WhatsApp
   whatsAppEnabled: boolean;
+  // Telemetry
+  telemetryEnabled: boolean;
+  telemetryEndpoint?: string;
+  // Logging
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
 
 export interface ConfigSource {

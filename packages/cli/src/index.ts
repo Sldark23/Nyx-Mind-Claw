@@ -9,8 +9,14 @@ import { registerDoctorCommand } from './commands/doctor/index';
 import { registerSkillsCommand } from './commands/skills/register';
 import { registerConfigCommand } from './commands/config/register';
 import { registerCompletionsCommand } from './commands/completions/index';
+import { initTelemetry, shutdownTelemetry, trackCommandExecuted, trackCommandCompleted } from './lib/telemetry';
 // Ensure config system is loaded (triggers dotenv + nyxmind-claw.json loading)
 import '@nyxmind/core';
+
+initTelemetry();
+process.on('exit', () => shutdownTelemetry());
+process.on('SIGINT', () => { shutdownTelemetry(); process.exit(128 + 2); });
+process.on('SIGTERM', () => { shutdownTelemetry(); process.exit(128 + 15); });
 
 const program = new Command();
 

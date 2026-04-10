@@ -1,24 +1,45 @@
-export const ENV_TEMPLATE = `# LLM Provider
+export const ENV_TEMPLATE = `# ===== NyxMindClaw =====
+
+# LLM
 LLM_PROVIDER=openai
 LLM_API_KEY=
 LLM_MODEL=gpt-4o-mini
 LLM_BASE_URL=
 
 # Agent
-MAX_ITERATIONS=5
+MAX_ITERATIONS=10
 MEMORY_WINDOW_SIZE=20
+LOCALE=en
 
 # Directories
 SKILLS_DIR=.agents/skills
 DATA_DIR=./data
 TMP_DIR=./tmp
 
+# Database
+DATABASE_URL=mongodb://localhost:27017/nyxmind
+
 # Security
 GLOBAL_ALLOWED_IDS=
+MAX_FILE_SIZE=10485760
+MAX_AUDIO_SIZE=5242880
 
 # Channels
+TELEGRAM_ENABLED=false
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_ALLOWED_IDS=
+TELEGRAM_RATE_LIMIT=30
+
+DISCORD_ENABLED=false
 DISCORD_TOKEN=
+DISCORD_RATE_LIMIT=60
+
 WHATSAPP_ENABLED=false
+
+# Telemetry (opt-in)
+TELEMETRY_ENABLED=false
+TELEMETRY_ENDPOINT=
+
+# Logging
+LOG_LEVEL=info
 `;

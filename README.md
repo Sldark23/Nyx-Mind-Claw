@@ -2,7 +2,46 @@
 
 Your personal AI agent framework — extensible, multi-provider, skill-driven.
 
-## Quick Start
+## Requirements
+
+- **Node.js 18+**
+- **Git**
+- **npm**
+- **Docker** (optional — only needed if using MongoDB; local file storage works without it)
+
+## Quick Install (Automatic)
+
+```bash
+git clone git@github.com:Sldark23/Nyx-Mind-Claw.git
+cd Nyx-Mind-Claw
+./install.sh
+```
+
+The script automatically:
+1. Detects your OS (Linux, macOS, Windows via WSL)
+2. Checks all required dependencies (Node 18+, git, npm)
+3. Offers MongoDB setup via Docker (or skip to use local file storage)
+4. Installs the CLI globally as `nyxmind`
+5. Runs `nyxmind onboard` to configure your agent
+
+### Install Script Flags
+
+```bash
+./install.sh --force          # Overwrite existing .env
+./install.sh --skip-docker    # Skip MongoDB Docker setup
+./install.sh --skip-doctor    # Skip post-install health check
+./install.sh --non-interactive # Fully automated (for CI)
+```
+
+### Update (Same Script)
+
+If already installed, the script detects it automatically and runs in **update mode** — pulls latest code and rebuilds without re-running onboard.
+
+```bash
+./install.sh
+```
+
+## Manual Install
 
 ```bash
 npm install
@@ -10,6 +49,13 @@ npm run build
 nyxmind onboard    # Interactive first-time setup
 nyxmind run        # Start the agent
 ```
+
+## Storage Options
+
+- **MongoDB** (default) — full database, needs Docker or local MongoDB
+- **Local file storage** — no database required, everything stored in `data/`
+
+Choose during `nyxmind onboard` or set `DATABASE_URL=local` in `.env`.
 
 ## Key Features
 
@@ -23,7 +69,7 @@ nyxmind run        # Start the agent
 
 | Command | Description |
 |---|---|
-| `nyxmind onboard` | Interactive first-time setup |
+| `nyxmind onboard` | Interactive setup (or reconfigure anytime) |
 | `nyxmind run` | Start the agent |
 | `nyxmind skills` | List installed skills |
 | `nyxmind skills install <name>` | Install a skill from marketplace |
@@ -38,6 +84,8 @@ nyxmind-claw/
 │   ├── cli/          # nyxmind command-line interface
 │   └── core/         # Agent loop, LLM factory, memory, skills, config
 ├── .agents/skills/   # Installed skills (SKILL.md files)
+├── data/             # Persistent data (DB, telemetry)
+├── tmp/              # Temporary files
 ├── nyxmind-claw.json # Config file (or use .env)
 └── install.sh        # Auto-install script
 ```
