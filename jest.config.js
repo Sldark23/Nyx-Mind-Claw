@@ -2,16 +2,14 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/packages'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      tsconfig: '<rootDir>/tsconfig.json',
-      // Skip native modules that don't transform well
+      tsconfig: '<rootDir>/tsconfig.base.json',
       isolatedModules: true,
     }],
   },
-  // Do NOT transform packages that have native add-ons or CJS deps
   transformIgnorePatterns: [
     '/node_modules/(?!(uuid|axios|cheerio|commander)/)',
   ],
@@ -21,7 +19,9 @@ module.exports = {
     '!src/**/__tests__/**',
   ],
   moduleNameMapper: {
-    '^@nyxmind/core$': '<rootDir>/src/index.ts',
+    '^@nyxmind/core$': '<rootDir>/packages/core/src/index.ts',
+    '^@nyxmind/channels$': '<rootDir>/packages/channels/src/index.ts',
+    '^@nyxmind/cli$': '<rootDir>/packages/cli/src/index.ts',
   },
   testTimeout: 10000,
 };

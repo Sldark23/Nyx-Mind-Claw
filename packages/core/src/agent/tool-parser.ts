@@ -12,33 +12,42 @@ export class ToolParser {
    * Returns null if no valid tool call found.
    */
   parse(text: string): ToolCall | null {
-    // Try markdown-fenced JSON first
     const fenced = this.parseFenced(text);
     if (fenced) return fenced;
-
-    // Try raw JSON anywhere in text
     return this.parseRaw(text);
   }
 
   private parseFenced(text: string): ToolCall | null {
-    // Match ```json ... ``` or ``` ... ```
     const match = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
     if (!match) return null;
     return this.parseJSON(match[1]);
   }
 
   private parseRaw(text: string): ToolCall | null {
-    // Find first {...} block
-    const match = text.match(/\{[\s\S]*?\}/);
-    if (!match) return null;
-    return this.parseJSON(match[0]);
+    const firstBrace = text.indexOf('{');
+    if (firstBrace < 0) return null;
+
+    // Try JSON.parse from the first { with increasingly longer substrings
+    for (let end = firstBrace + 1; end <= text.length; end++) {
+      const candidate = text.slice(firstBrace, end);
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed && typeof parsed.tool === 'string' && parsed.args && typeof parsed.args === 'object') {
+          return {
+            tool: parsed.tool.trim(),
+            args: parsed.args as Record<string, unknown>,
+          };
+        }
+      } catch {
+        // keep trying
+      }
+    }
+    return null;
   }
 
   private parseJSON(raw: string): ToolCall | null {
-    // Strip content before opening brace (sometimes LLM adds leading text)
     const jsonStart = raw.indexOf('{');
     const jsonStr = jsonStart >= 0 ? raw.slice(jsonStart) : raw;
-
     try {
       const parsed = JSON.parse(jsonStr);
       if (
