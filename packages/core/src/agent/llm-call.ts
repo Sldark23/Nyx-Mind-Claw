@@ -1,6 +1,7 @@
 /**
- * Make LLM chat calls with retry + exponential backoff.
+ * Make LLM chat calls with retry + exponential backoff + timeout.
  * Transient errors (network, 429, 5xx) are retried automatically.
+ * Calls timeout after `timeoutMs` (default: 60s) to prevent indefinite hangs.
  */
 import { ChatMessage } from './types';
 import { ProviderFactory } from '../llm';
@@ -9,32 +10,36 @@ export interface LlmCallOptions {
   maxRetries?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
+  timeoutMs?: number;
 }
 
 export class LlmCall {
+  private readonly maxRetries: number;
+  private readonly baseDelayMs: number;
+  private readonly maxDelayMs: number;
+  private readonly timeoutMs: number;
+
   constructor(
     private llm: ProviderFactory,
-    private opts: LlmCallOptions = {}
+    opts: LlmCallOptions = {}
   ) {
-    this.opts = {
-      maxRetries: 3,
-      baseDelayMs: 1000,
-      maxDelayMs: 10000,
-      ...opts,
-    };
+    this.maxRetries = opts.maxRetries ?? 3;
+    this.baseDelayMs = opts.baseDelayMs ?? 1000;
+    this.maxDelayMs = opts.maxDelayMs ?? 10000;
+    this.timeoutMs = opts.timeoutMs ?? 60000;
   }
 
   /**
    * Call the LLM with messages, retrying on transient failures.
-   * @throws LLMError after all retries exhausted
+   * Times out after `timeoutMs` (default 60s).
+   * @throws LLMError after all retries exhausted or timeout
    */
   async chat(messages: ChatMessage[]): Promise<string> {
-    const { maxRetries, baseDelayMs, maxDelayMs } = this.opts;
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= maxRetries!; attempt++) {
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
-        return await this.llm.chat(messages);
+        return await this.withTimeout(this.llm.chat(messages), this.timeoutMs);
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
 
@@ -42,11 +47,11 @@ export class LlmCall {
           throw lastError; // non-transient, don't retry
         }
 
-        if (attempt === maxRetries) {
+        if (attempt === this.maxRetries) {
           throw lastError; // exhausted retries
         }
 
-        const delay = Math.min(baseDelayMs! * 2 ** attempt, maxDelayMs!);
+        const delay = Math.min(this.baseDelayMs * 2 ** attempt, this.maxDelayMs);
         console.warn(`[LlmCall:retry] attempt ${attempt + 1} failed (${lastError.message.slice(0, 80)}). Retrying in ${delay}ms...`);
         await this.sleep(delay);
       }
@@ -64,6 +69,27 @@ export class LlmCall {
     // OpenAI specific
     if (msg.includes('reduce') || msg.includes('timeout')) return true;
     return false;
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ms);
+    try {
+      const result = await Promise.race([
+        promise.finally(() => clearTimeout(timeout)),
+        new Promise<T>((_, reject) => {
+          controller.signal.addEventListener('abort', () => {
+            clearTimeout(timeout);
+            reject(new Error(`LLM call timed out after ${ms}ms`));
+          });
+        })
+      ]);
+      clearTimeout(timeout);
+      return result;
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
   }
 
   private sleep(ms: number): Promise<void> {

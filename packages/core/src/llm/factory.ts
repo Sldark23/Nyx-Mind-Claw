@@ -13,6 +13,7 @@ export class ProviderFactory {
 
   async chat(messages: ChatMessage[]): Promise<string> {
     switch (this.cfg.provider) {
+      case 'openai': return this.chatOpenAICompatible(messages);
       case 'anthropic': return this.chatAnthropic(messages);
       case 'ollama': return this.chatOllama(messages);
       case 'gemini': return this.chatGemini(messages);
