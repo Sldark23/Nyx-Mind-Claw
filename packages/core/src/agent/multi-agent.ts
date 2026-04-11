@@ -47,6 +47,7 @@ export interface TeamResult {
   supervisorOutput: string;
   taskResults: TaskResult[];
   totalIterations: number;
+  error?: string;
 }
 
 // ── Role prompt templates ──────────────────────────────────────────────────────

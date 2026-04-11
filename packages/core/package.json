@@ -4,26 +4,31 @@
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./testing": "./dist/testing/index.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {
-    "uuid": "^9.0.1",
-    "js-yaml": "^4.1.0",
-    "better-sqlite3": "^9.6.0",
-    "zod": "^3.23.8",
-    "openai": "^4.47.1",
     "@anthropic-ai/sdk": "^0.21.0",
-    "ollama": "^0.5.6",
     "axios": "^1.7.2",
+    "better-sqlite3": "^9.6.0",
     "cheerio": "^1.0.0-rc.12",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "js-yaml": "^4.1.0",
+    "ollama": "^0.5.6",
+    "openai": "^4.47.1",
+    "uuid": "^9.0.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
-    "@types/node": "^20.11.30",
     "@types/better-sqlite3": "^7.6.11",
-    "@types/js-yaml": "^4.0.9"
+    "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.11.30",
+    "typescript": "^5.5.4"
   }
 }

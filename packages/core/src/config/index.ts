@@ -1,4 +1,4 @@
-export { ConfigManager } from './manager';
+export { ConfigManager, ApprovalManager } from './manager';
 export type {
   NyxMindClawJsonConfig,
   MetaConfig,

@@ -4,6 +4,7 @@ import { SkillMeta } from '../skills/loader/types';
 import { SkillExecutor } from '../skills/executor';
 import { AgentLoop } from '../agent/agent-loop';
 import { ProviderFactory } from '../llm';
+import { getLlmConfig } from '../config';
 import { ToolRegistry } from '../tools';
 
 export interface TestCase {
@@ -85,7 +86,7 @@ export class TestRunner {
 
   constructor(skillsBaseDir = '.agents/skills') {
     this.skillsBaseDir = skillsBaseDir;
-    const llm = new ProviderFactory();
+    const llm = new ProviderFactory(getLlmConfig());
     const tools = new ToolRegistry();
     this.agentLoop = new AgentLoop({ llm, tools, maxIterations: 5 });
   }
