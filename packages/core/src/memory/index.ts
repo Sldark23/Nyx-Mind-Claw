@@ -92,7 +92,7 @@ export class MemoryManager {
   getRecent(conversationId: string, limit?: number): Message[] {
     const memoryWindow = limit ?? getConfig().memoryWindow;
     const rows = this.db.prepare(
-      'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?'
+      'SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?'
     ).all(conversationId, memoryWindow) as Message[];
     return rows.reverse();
   }

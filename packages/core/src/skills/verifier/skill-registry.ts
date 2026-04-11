@@ -108,7 +108,9 @@ export class SkillRegistry extends EventEmitter {
   }
   
   /**
-   * List all approved skills (approved + bundled)
+   * List all approved skills (approved + bundled).
+   * Bundled skill metadata (description, path) is loaded from their SKILL.md frontmatter
+   * on first call, then cached in memory.
    */
   listApproved(): SkillMeta[] {
     const skills: SkillMeta[] = [];

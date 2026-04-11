@@ -273,20 +273,9 @@ function loadJsonConfig(): Partial<NyxMindClawConfig> | null {
 
 // ── .env loading ─────────────────────────────────────────────────────────────
 
-/**
- * Load environment variables from .env files.
- * @param envPath - Optional path to .env file. Defaults to '.env' in cwd.
- *   When provided, only that path is loaded.
- *   When omitted, loads from cwd + two parent directories (legacy fallback).
- */
-function loadEnvConfig(envPath?: string): void {
-  if (envPath) {
-    dotenv.config({ path: envPath });
-  } else {
-    // Legacy multi-path fallback
-    dotenv.config({ path: path.join(process.cwd(), '.env') });
-    dotenv.config({ path: path.join(process.cwd(), '..', '..', '.env') });
-  }
+function loadEnvConfig(): void {
+  dotenv.config({ path: path.join(process.cwd(), '.env') });
+  dotenv.config({ path: path.join(process.cwd(), '..', '..', '.env') });
 }
 
 // ── Env → partial config mapping ─────────────────────────────────────────────
@@ -372,14 +361,14 @@ function envToPartialConfig(): Partial<NyxMindClawConfig> {
     },
   };
 }
-
 /**
- * Deep merge two objects.
+ * Recursively deep-merges `source` into `target`.
  *
- * Arrays are treated as scalar values — the source array replaces the target array
- * entirely (no concatenation or element-wise merge). This matches the behavior used
- * by models.providers arrays in nyxmind-claw.json config: one provider definition
- * replaces another rather than merging by index.
+ * Behavior by value type:
+ * - **Object**: recursively merged key-by-key (nested objects merge deeply).
+ * - **Array**: replaced entirely — the source array overwrites the target array;
+ *   there is no concatenation, no index-wise zip, and no deduplication.
+ * - **Primitive** (string, number, boolean, null, undefined): replaced entirely.
  *
  * @param target - The base object to merge into.
  * @param source - The partial object with values to override or add.
