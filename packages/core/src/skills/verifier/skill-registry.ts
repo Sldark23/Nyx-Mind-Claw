@@ -11,6 +11,35 @@ export const BUNDLED_SKILLS = new Set<string>([
   'humanizer',
 ]);
 
+// Static metadata for bundled skills — loaded from skill manifest on first use
+interface BundledSkillMeta {
+  description: string;
+  path: string;
+}
+
+const BUNDLED_SKILLS_META: Record<string, BundledSkillMeta> = {
+  'brain-sync': {
+    description: 'Uses the Second Brain (Obsidian vault at /root/Sync) as long-term memory',
+    path: 'openclaw-imports/brain-sync',
+  },
+  'proactivity': {
+    description: 'Anticipates needs, keeps work moving, and improves throughout',
+    path: 'openclaw-imports/proactivity',
+  },
+  'autoresearch': {
+    description: 'Automated research assistant for topic exploration and fact-finding',
+    path: 'openclaw-imports/autoresearch',
+  },
+  'article-builder-news': {
+    description: 'Generates and publishes news articles to WordPress',
+    path: 'openclaw-imports/artigo-builder-news',
+  },
+  'humanizer': {
+    description: 'Removes signs of AI-generated writing from text',
+    path: 'openclaw-imports/humanizer',
+  },
+};
+
 export interface PendingSkill {
   name: string;
   reason: string;
@@ -115,11 +144,21 @@ export class SkillRegistry extends EventEmitter {
   listApproved(): SkillMeta[] {
     const skills: SkillMeta[] = [];
     for (const name of this.approvedSkills) {
-      skills.push({ name, description: '', path: '' });
+      const meta = BUNDLED_SKILLS_META[name];
+      skills.push({
+        name,
+        description: meta?.description ?? '',
+        path: meta?.path ?? '',
+      });
     }
     for (const name of BUNDLED_SKILLS) {
       if (!this.approvedSkills.has(name)) {
-        skills.push({ name, description: '', path: '' });
+        const meta = BUNDLED_SKILLS_META[name];
+        skills.push({
+          name,
+          description: meta?.description ?? '',
+          path: meta?.path ?? '',
+        });
       }
     }
     return skills;

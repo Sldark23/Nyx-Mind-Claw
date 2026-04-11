@@ -34,7 +34,7 @@ export class MemoryManager {
     if (dir) fs.mkdirSync(dir, { recursive: true });
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
-    this.graph = new GraphMemory(dbPath.replace('.db', '-graph.db'));
+    this.graph = new GraphMemory(dbPath.replace('.db', '-graph.db'), this.db);
     this.init();
   }
 

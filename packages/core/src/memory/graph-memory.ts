@@ -86,19 +86,26 @@ const ENTITY_TYPE_PRIORITY: Array<[string, RegExp]> = [
   ['concept', ENTITY_PATTERNS.quoted],
 ];
 
+const MAX_INPUT_CHARS = 10_000;
+
 /**
  * Extract candidate entities from a string using lightweight heuristics.
  * No LLM required.
+ *
+ * @param text - Input text to extract entities from. Must not exceed MAX_INPUT_CHARS.
  */
 export function extractEntities(text: string): Array<{ name: string; type: Entity['type'] }> {
   const candidates: Array<{ name: string; type: Entity['type'] }> = [];
   const seen = new Set<string>();
 
+  // ReDoS prevention: truncate input before regex processing
+  const input = text.length > MAX_INPUT_CHARS ? text.slice(0, MAX_INPUT_CHARS) : text;
+
   for (const [type, regex] of ENTITY_TYPE_PRIORITY) {
     // Reset regex lastIndex
     const re = new RegExp(regex.source, regex.flags);
     let match;
-    while ((match = re.exec(text)) !== null) {
+    while ((match = re.exec(input)) !== null) {
       const name = (match[1] ?? match[0]).trim();
       if (name.length < 2) continue;
       const key = `${type}:${name.toLowerCase()}`;
@@ -152,25 +159,21 @@ const CREATE_SQL = `
 export class GraphMemory {
   private db: Database.Database;
 
-  constructor(private dbPath = './data/graph-memory.db') {
-    const dir = path.dirname(dbPath);
-    if (dir) fs.mkdirSync(dir, { recursive: true });
-    this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
-    this.db.exec(CREATE_SQL);
+  constructor(private dbPath = './data/graph-memory.db', db?: Database.Database) {
+    if (db) {
+      this.db = db;
+    } else {
+      const dir = path.dirname(dbPath);
+      if (dir) fs.mkdirSync(dir, { recursive: true });
+      this.db = new Database(dbPath);
+      this.db.pragma('journal_mode = WAL');
+      this.db.exec(CREATE_SQL);
+    }
   }
 
   // ── Entity management ───────────────────────────────────────────────────────
 
-  private entityTypeToCol(type: Entity['type']): string {
-    const map: Record<Entity['type'], string> = {
-      person: 'person', project: 'project', file: 'file',
-      concept: 'concept', event: 'event', location: 'location', unknown: 'unknown',
-    };
-    return map[type] ?? 'unknown';
-  }
-
-  /** Get or create entity by name */
+/** Get or create entity by name */
   getOrCreateEntity(name: string, type: Entity['type'], properties: Record<string, string> = {}): Entity {
     const idKey = `${type}:${name.toLowerCase()}`;
     const existing = this.db.prepare('SELECT * FROM graph_entities WHERE type = ? AND name_lower = ?').get(type, name.toLowerCase()) as any;

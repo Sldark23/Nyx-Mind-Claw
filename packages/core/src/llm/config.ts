@@ -7,9 +7,20 @@ export const ProviderConfigSchema = z.object({
     'anthropic', 'ollama', 'ollama-cloud', 'gemini', 'deepseek',
     'cohere', 'mistral', 'perplexity', 'together',
   ]),
-  apiKey: z.string().optional(),
+  apiKey: z.string().default(''),
   baseUrl: z.string().optional(),
   model: z.string().optional(),
+}).superRefine((cfg, ctx) => {
+  // Fail fast if apiKey is missing for providers that require it.
+  // Ollama-based providers and openai-compatible endpoints may omit it (local auth).
+  if (!cfg.apiKey && !['ollama', 'ollama-cloud'].includes(cfg.provider)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.invalid_type,
+      expected: 'string',
+      received: 'undefined',
+      message: `Provider "${cfg.provider}" requires an API key. Set LLM_API_KEY or provider.apiKey in config.`,
+    });
+  }
 });
 
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
