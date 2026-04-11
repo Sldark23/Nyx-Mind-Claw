@@ -15,6 +15,7 @@ export class ProviderFactory {
       case 'openai': return this.chatOpenAICompatible(messages);
       case 'anthropic': return this.chatAnthropic(messages);
       case 'ollama': return this.chatOllama(messages);
+      case 'ollama-cloud': return this.chatOllamaCloud(messages);
       case 'gemini': return this.chatGemini(messages);
       case 'deepseek': return this.chatDeepSeek(messages);
       case 'cohere': return this.chatCohere(messages);
@@ -63,6 +64,7 @@ export class ProviderFactory {
     return resp.content[0]?.type === 'text' ? resp.content[0].text : '';
   }
 
+  // ── Ollama (local) ──────────────────────────────────────────────
   private async chatOllama(messages: ChatMessage[]): Promise<string> {
     const ollama = new Ollama({ host: this.cfg.baseUrl || 'http://localhost:11434' });
     const chatMsgs = this.chatMsgs(messages);
@@ -71,6 +73,11 @@ export class ProviderFactory {
       messages: chatMsgs as Array<{ role: string; content: string }>,
     });
     return resp.message.content;
+  }
+
+  // ── Ollama Cloud (https://ollama.com/v1 - OpenAI-compatible) ───
+  private async chatOllamaCloud(messages: ChatMessage[]): Promise<string> {
+    return this.chatOpenAICompatible(messages);
   }
 
   private async chatGemini(messages: ChatMessage[]): Promise<string> {
@@ -138,7 +145,6 @@ export class ProviderFactory {
     const system = this.systemMsg(messages);
     const chatMsgs = this.chatMsgs(messages);
 
-    // Cohere chat format
     const body: Record<string, unknown> = {
       model,
       messages: chatMsgs,
