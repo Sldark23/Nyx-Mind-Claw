@@ -2,12 +2,12 @@
  * MarketplaceRegistry — the list of available skills.
  *
  * Skills are fetched from GitHub raw content.
- * Default registry: github.com/Sldark23/skills
+ * Default registry: github.com/Sldark23/skills-nyxmindclaw
  *
  * Format:
  *   {
  *     "skill-name": {
- *       "url": "https://raw.githubusercontent.com/Sldark23/skills/main/skill-name/SKILL.md",
+ *       "url": "https://raw.githubusercontent.com/Sldark23/skills-nyxmindclaw/main/skill-name/SKILL.md",
  *       "description": "What the skill does",
  *       "author": "nyxmind",
  *       "version": "1.0.0",
@@ -26,7 +26,7 @@ export interface MarketplaceEntry {
 
 export type Marketplace = Record<string, MarketplaceEntry>;
 
-const GITHUB_RAW = 'https://raw.githubusercontent.com/Sldark23/skills/main';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/Sldark23/skills-nyxmindclaw/main';
 const AUTHOR = 'nyxmind';
 const VERSION = '1.0.0';
 
