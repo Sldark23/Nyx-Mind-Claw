@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { Provider } from './constants';
 
 export const ProviderConfigSchema = z.object({
-  provider: z.enum(['openai', 'groq', 'grok', 'minimax', 'anthropic', 'ollama', 'gemini', 'deepseek']),
+  provider: z.enum([
+    'openai', 'groq', 'grok', 'minimax',
+    'anthropic', 'ollama', 'gemini', 'deepseek',
+    'cohere', 'mistral', 'perplexity', 'together',
+  ]),
   apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
   model: z.string().optional(),
