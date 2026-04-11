@@ -15,6 +15,7 @@ import {
   buildBootstrapAnswerPrompt,
   BOOTSTRAP_QUESTIONS,
   type BootstrapAnswers,
+  validateBootstrapAnswer,
 } from './bootstrap';
 
 interface RateLimitEntry {
@@ -157,6 +158,11 @@ export class AgentController {
     const cleanAnswer = answer.trim();
     if (!cleanAnswer) {
       return { saved: false, retry: 'Não entendi, pode repetir?' };
+    }
+    // Validate the answer before saving
+    const validationError = validateBootstrapAnswer(currentKey, cleanAnswer);
+    if (validationError) {
+      return { saved: false, retry: validationError };
     }
     this.memory.saveBootstrapAnswer(userId, currentKey, cleanAnswer);
     const profile = this.memory.getBootstrapProfile(userId);
