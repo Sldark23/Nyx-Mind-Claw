@@ -7,18 +7,14 @@ export class SkillRouter {
   async route(userInput: string, skills: SkillMeta[]): Promise<string | null> {
     if (!skills.length) return null;
 
-    const lowerInput = userInput.toLowerCase();
-
-    // 1. Fast path: match trigger patterns
+    // 1. Fast path: match trigger patterns (test once, no double-match)
     for (const skill of skills) {
       if (skill.trigger) {
         try {
           const re = new RegExp(skill.trigger, 'i');
-          if (re.test(userInput) || re.test(lowerInput)) {
-            return skill.name;
-          }
+          if (re.test(userInput)) return skill.name;
         } catch {
-          // invalid regex, skip
+          // invalid regex — skip silently
         }
       }
     }

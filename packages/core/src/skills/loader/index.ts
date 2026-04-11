@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import { SkillMeta } from './types';
-import { BUNDLED_SKILLS, getRegistry, SkillVerifier } from '../verifier';
-import type { PendingSkill } from '../verifier';
+import { BUNDLED_SKILLS, getRegistry } from '../verifier/skill-registry';
+import { SkillVerifier } from '../verifier/skill-verifier';
 import { getDirs } from '../../config';
 
 export class SkillLoader {
@@ -47,7 +47,7 @@ export class SkillLoader {
     return skills;
   }
 
-  loadWithVerification(): { approvedSkills: SkillMeta[]; pendingSkills: PendingSkill[] } {
+  loadWithVerification(): { approvedSkills: SkillMeta[]; pendingSkills: { name: string; reason: string; score: number }[] } {
     if (!fs.existsSync(this.skillsDir)) return { approvedSkills: [], pendingSkills: [] };
 
     const registry = getRegistry();
@@ -74,12 +74,8 @@ export class SkillLoader {
       }
     }
 
-    // Fix: preserve report and original submittedAt from pending skills
-    const pendingSkills: PendingSkill[] = registry.listPending().map(p => ({
-      ...p,
-      report: p.report ?? null,
-      submittedAt: p.submittedAt ?? new Date(),
-    }));
+    // listPending() returns simplified objects { name, reason, score }
+    const pendingSkills = registry.listPending();
 
     return { approvedSkills, pendingSkills };
   }
@@ -89,7 +85,11 @@ export class SkillLoader {
     const end = md.indexOf('---', 3);
     if (end === -1) return null;
     const raw = md.slice(3, end).trim();
-    return yaml.load(raw) as Record<string, unknown>;
+    try {
+      return yaml.load(raw, { filename: 'SKILL.md' }) as Record<string, unknown>; // Safe YAML parsing
+    } catch {
+      return null;
+    }
   }
 
   private desc(meta: Record<string, unknown>): string {

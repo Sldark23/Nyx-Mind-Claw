@@ -8,6 +8,7 @@
  */
 import { ChatMessage } from './types';
 import { ProviderFactory } from '../llm';
+import { getConfig } from '../config';
 import { ToolRegistry } from '../tools';
 import { LlmCall } from './llm-call';
 import { ToolParser } from './tool-parser';
@@ -29,7 +30,7 @@ export class AgentLoop {
   private readonly onIteration?: AgentLoopConfig['onIteration'];
 
   constructor(config: AgentLoopConfig) {
-    this.maxIterations = config.maxIterations ?? 5;
+    this.maxIterations = config.maxIterations ?? getConfig().iterations; // Use config value
     this.llmCall = new LlmCall(config.llm);
     this.parser = new ToolParser();
     this.executor = new ToolExecutor({ registry: config.tools });

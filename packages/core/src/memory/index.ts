@@ -32,10 +32,31 @@ export class MemoryManager {
   constructor(private dbPath = './data/nyxmind.db') {
     const dir = path.dirname(dbPath);
     if (dir) fs.mkdirSync(dir, { recursive: true });
-    this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
-    this.graph = new GraphMemory(dbPath.replace('.db', '-graph.db'), this.db);
-    this.init();
+    try {
+      this.db = new Database(dbPath);
+      this.db.pragma('journal_mode = WAL');
+      this.graph = new GraphMemory(dbPath.replace('.db', '-graph.db'), this.db);
+      this.init();
+    } catch (err) {
+      console.warn(`[MemoryManager] Failed to initialize database: ${err}. Memory features disabled.`);
+      this.db = { // Create a dummy database interface
+        exec: () => [],
+        prepare: () => ({ run: () => {}, get: () => undefined, all: () => [] }),
+        close: () => {}
+      } as unknown as Database.Database;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.graph = {
+        close: () => {},
+        getOrCreateEntity: () => ({ id: 'fallback', name: '', type: 'unknown' as const, properties: {}, firstSeen: 0, lastSeen: 0 }),
+        getEntityByName: () => undefined,
+        getRelatedEntities: () => [],
+        search: () => [],
+        addEpisodic: () => {},
+        upsertRelationship: () => {},
+        buildContext: () => '',
+        consolidate: () => ({ merged: 0, deleted: 0 })
+      } as unknown as GraphMemory;
+    }
   }
 
   private init(): void {

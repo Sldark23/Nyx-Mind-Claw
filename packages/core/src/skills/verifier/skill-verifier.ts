@@ -16,7 +16,7 @@ interface FrontmatterMeta {
 }
 
 // Credential detection patterns
-const CREDENTIAL_PATTERNS = [
+const CREDENTIAL_PATTERNS: RegExp[] = [
   /(api[_-]?key|token|secret|password|auth|credential)[^]{0,50}(\$|env|process\.env)/gi,
   /['"](sk-|pk-|token_|secret_)[a-zA-Z0-9]{20,}['"]/gi,
   /['"][a-f0-9]{32,}['"]/gi, // Generic hex strings that might be keys/tokens
@@ -26,10 +26,10 @@ const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB per file
 
 function scanForCredentials(filePath: string): { pattern: string; context: string }[] {
   if (!fs.existsSync(filePath)) return [];
-  
+
   const content = fs.readFileSync(filePath, 'utf-8');
   const alerts: { pattern: string; context: string }[] = [];
-  
+
   for (const pattern of CREDENTIAL_PATTERNS) {
     const regex = new RegExp(pattern.source, pattern.flags);
     let match;
@@ -44,7 +44,7 @@ function scanForCredentials(filePath: string): { pattern: string; context: strin
       });
     }
   }
-  
+
   return alerts;
 }
 
@@ -62,19 +62,19 @@ function parseFrontmatter(content: string): FrontmatterMeta | null {
 
 function validateFrontmatter(meta: FrontmatterMeta | null): { valid: boolean; warnings: string[] } {
   const warnings: string[] = [];
-  
+
   if (!meta) {
     return { valid: false, warnings: ['SKILL.md missing or invalid frontmatter'] };
   }
-  
+
   if (typeof meta.name !== 'string' || meta.name.trim() === '') {
     warnings.push('Frontmatter missing or empty "name" field');
   }
-  
+
   if (typeof meta.description !== 'string' || meta.description.trim() === '') {
     warnings.push('Frontmatter missing or empty "description" field');
   }
-  
+
   const valid = typeof meta.name === 'string' && meta.name.trim() !== '';
   return { valid, warnings };
 }
@@ -85,7 +85,7 @@ export class SkillVerifier {
   async verify(skillPath: string): Promise<VerificationReport> {
     const warnings: string[] = [];
     const credentialAlerts: { file: string; pattern: string; context: string }[] = [];
-    
+
     // Normalize skill path - could be a directory or full path to SKILL.md
     let skillDir = skillPath;
     if (!fs.existsSync(skillDir)) {
@@ -96,14 +96,14 @@ export class SkillVerifier {
         credentialAlerts: [],
       };
     }
-    
+
     if (fs.statSync(skillDir).isFile()) {
       // Provided path is the SKILL.md file itself
       skillDir = path.dirname(skillDir);
     }
-    
+
     const skillMdPath = path.join(skillDir, 'SKILL.md');
-    
+
     // Check SKILL.md exists
     if (!fs.existsSync(skillMdPath)) {
       return {
@@ -113,41 +113,41 @@ export class SkillVerifier {
         credentialAlerts: [],
       };
     }
-    
+
     // Read and parse SKILL.md
     const skillContent = fs.readFileSync(skillMdPath, 'utf-8');
     const meta = parseFrontmatter(skillContent);
     const frontmatterResult = validateFrontmatter(meta);
     warnings.push(...frontmatterResult.warnings);
-    
+
     // Scan skill files for credentials
     const scanDirs = [skillDir];
     const skillsDir = path.join(this.baseDir, path.basename(skillDir));
     if (fs.existsSync(skillsDir) && skillsDir !== skillDir) {
       scanDirs.push(skillsDir);
     }
-    
+
     for (const dir of scanDirs) {
-      this.scanDirectory(dir, credentialAlerts);
+      this.scanDirectory(dir, warnings, credentialAlerts);
     }
-    
+
     // Calculate score
     let score = 100;
-    
+
     // Deduct for missing frontmatter fields
     if (!meta?.name) score -= 20;
     if (!meta?.description) score -= 15;
-    
+
     // Deduct for warnings
     score -= warnings.length * 5;
-    
+
     // Deduct heavily for credential leaks (security critical)
     score -= credentialAlerts.length * 25;
     score = Math.max(0, score);
-    
+
     // Valid if score >= 50 and no critical issues
     const valid = score >= 50 && credentialAlerts.length === 0 && frontmatterResult.valid;
-    
+
     return {
       valid,
       score,
@@ -155,8 +155,8 @@ export class SkillVerifier {
       credentialAlerts,
     };
   }
-  
-  private scanDirectory(dir: string, alerts: { file: string; pattern: string; context: string }[]): void {
+
+  private scanDirectory(dir: string, warnings: string[], alerts: { file: string; pattern: string; context: string }[]): void {
     if (!fs.existsSync(dir)) return;
 
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -166,7 +166,7 @@ export class SkillVerifier {
       if (entry.isDirectory()) {
         // Skip node_modules, .git, etc.
         if (!['node_modules', '.git', 'dist', 'build'].includes(entry.name)) {
-          this.scanDirectory(fullPath, alerts);
+          this.scanDirectory(fullPath, warnings, alerts);
         }
       } else if (entry.isFile()) {
         // Only scan text-based files
@@ -174,7 +174,7 @@ export class SkillVerifier {
         if (['.ts', '.js', '.md', '.json', '.yaml', '.yml', '.txt', '.sh'].includes(ext)) {
           const stat = fs.statSync(fullPath);
           if (stat.size > MAX_FILE_SIZE_BYTES) {
-            // Skip oversized files with a warning (not added to alerts — not a security issue)
+            warnings.push(`Skipped oversized file (${(stat.size / 1024 / 1024).toFixed(1)} MB): ${fullPath}`);
             continue;
           }
           const fileAlerts = scanForCredentials(fullPath);
@@ -185,14 +185,126 @@ export class SkillVerifier {
       }
     }
   }
-  
+
+  /**
+   * Synchronous verification stub.
+   * NOTE: the underlying verify() is async. This exists for sync-callers only.
+   * For production code, prefer verify() directly.
+   */
   verifySync(skillPath: string): VerificationReport {
-    return this.verify(skillPath) as any;
+    return verifySkillSync(skillPath, this.baseDir);
   }
 }
 
-// Synchronous version for backward compatibility
+// ---------------------------------------------------------------------------
+// Synchronous verification — uses only sync fs operations
+// ---------------------------------------------------------------------------
+
+function scanForCredentialsSync(filePath: string): { pattern: string; context: string }[] {
+  if (!fs.existsSync(filePath)) return [];
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const alerts: { pattern: string; context: string }[] = [];
+
+  for (const pattern of CREDENTIAL_PATTERNS) {
+    const regex = new RegExp(pattern.source, pattern.flags);
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      const start = Math.max(0, match.index - 50);
+      const end = Math.min(content.length, match.index + match[0].length + 50);
+      const context = content.slice(start, end);
+      alerts.push({ pattern: match[0], context: `...${context}...` });
+    }
+  }
+
+  return alerts;
+}
+
+function scanDirectorySync(dir: string, warnings: string[], alerts: { file: string; pattern: string; context: string }[]): void {
+  if (!fs.existsSync(dir)) return;
+
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      if (!['node_modules', '.git', 'dist', 'build'].includes(entry.name)) {
+        scanDirectorySync(fullPath, warnings, alerts);
+      }
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).toLowerCase();
+      if (['.ts', '.js', '.md', '.json', '.yaml', '.yml', '.txt', '.sh'].includes(ext)) {
+        const stat = fs.statSync(fullPath);
+        if (stat.size > MAX_FILE_SIZE_BYTES) {
+          warnings.push(`Skipped oversized file (${(stat.size / 1024 / 1024).toFixed(1)} MB): ${fullPath}`);
+          continue;
+        }
+        const fileAlerts = scanForCredentialsSync(fullPath);
+        for (const alert of fileAlerts) {
+          alerts.push({ file: fullPath, pattern: alert.pattern, context: alert.context });
+        }
+      }
+    }
+  }
+}
+
+function parseFrontmatterSync(content: string): FrontmatterMeta | null {
+  if (!content.startsWith('---')) return null;
+  const end = content.indexOf('---', 3);
+  if (end === -1) return null;
+  const raw = content.slice(3, end).trim();
+  try {
+    return yaml.load(raw) as FrontmatterMeta;
+  } catch {
+    return null;
+  }
+}
+
+function validateFrontmatterSync(meta: FrontmatterMeta | null): { valid: boolean; warnings: string[] } {
+  const warnings: string[] = [];
+  if (!meta) return { valid: false, warnings: ['SKILL.md missing or invalid frontmatter'] };
+  if (typeof meta.name !== 'string' || meta.name.trim() === '') warnings.push('Frontmatter missing or empty "name" field');
+  if (typeof meta.description !== 'string' || meta.description.trim() === '') warnings.push('Frontmatter missing or empty "description" field');
+  return { valid: typeof meta.name === 'string' && meta.name.trim() !== '', warnings };
+}
+
+export function verifySkillSync(skillPath: string, baseDir = '.agents/skills'): VerificationReport {
+  const warnings: string[] = [];
+  const credentialAlerts: { file: string; pattern: string; context: string }[] = [];
+
+  let skillDir = skillPath;
+  if (!fs.existsSync(skillDir)) {
+    return { valid: false, score: 0, warnings: [`Skill path does not exist: ${skillPath}`], credentialAlerts: [] };
+  }
+  if (fs.statSync(skillDir).isFile()) skillDir = path.dirname(skillDir);
+
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
+  if (!fs.existsSync(skillMdPath)) {
+    return { valid: false, score: 0, warnings: [`SKILL.md not found in ${skillDir}`], credentialAlerts: [] };
+  }
+
+  const skillContent = fs.readFileSync(skillMdPath, 'utf-8');
+  const meta = parseFrontmatterSync(skillContent);
+  const frontmatterResult = validateFrontmatterSync(meta);
+  warnings.push(...frontmatterResult.warnings);
+
+  const scanDirs = [skillDir];
+  const skillsDir = path.join(baseDir, path.basename(skillDir));
+  if (fs.existsSync(skillsDir) && skillsDir !== skillDir) scanDirs.push(skillsDir);
+  for (const dir of scanDirs) scanDirectorySync(dir, warnings, credentialAlerts);
+
+  let score = 100;
+  if (!meta?.name) score -= 20;
+  if (!meta?.description) score -= 15;
+  score -= warnings.length * 5;
+  score -= credentialAlerts.length * 25;
+  score = Math.max(0, score);
+
+  const valid = score >= 50 && credentialAlerts.length === 0 && frontmatterResult.valid;
+  return { valid, score, warnings, credentialAlerts };
+}
+
+// Backward-compatible wrapper
 export function verifySkill(skillPath: string, baseDir = '.agents/skills'): VerificationReport {
-  const verifier = new SkillVerifier(baseDir);
-  return verifier.verifySync(skillPath);
+  return verifySkillSync(skillPath, baseDir);
 }
