@@ -4,20 +4,26 @@ import yaml from 'js-yaml';
 import { SkillMeta } from './types';
 import { BUNDLED_SKILLS, getRegistry, SkillVerifier } from '../verifier';
 import type { PendingSkill } from '../verifier';
+import { getDirs } from '../../config';
 
 export class SkillLoader {
-  constructor(private baseDir = '.agents/skills') {}
+  private readonly skillsDir: string;
+
+  constructor(baseDir?: string) {
+    // Use provided path, fallback to config dir, fallback to default
+    this.skillsDir = baseDir ?? getDirs().skills ?? '.agents/skills';
+  }
 
   loadAll(): SkillMeta[] {
-    if (!fs.existsSync(this.baseDir)) return [];
+    if (!fs.existsSync(this.skillsDir)) return [];
 
     const registry = getRegistry();
-    const verifier = new SkillVerifier(this.baseDir);
+    const verifier = new SkillVerifier(this.skillsDir);
     const skills: SkillMeta[] = [];
-    const dirs = fs.readdirSync(this.baseDir, { withFileTypes: true }).filter(d => d.isDirectory());
+    const dirs = fs.readdirSync(this.skillsDir, { withFileTypes: true }).filter(d => d.isDirectory());
 
     for (const dir of dirs) {
-      const skillPath = path.join(this.baseDir, dir.name, 'SKILL.md');
+      const skillPath = path.join(this.skillsDir, dir.name, 'SKILL.md');
       if (!fs.existsSync(skillPath)) continue;
       const content = fs.readFileSync(skillPath, 'utf-8');
       const meta = this.parseFrontmatter(content);
@@ -42,15 +48,15 @@ export class SkillLoader {
   }
 
   loadWithVerification(): { approvedSkills: SkillMeta[]; pendingSkills: PendingSkill[] } {
-    if (!fs.existsSync(this.baseDir)) return { approvedSkills: [], pendingSkills: [] };
+    if (!fs.existsSync(this.skillsDir)) return { approvedSkills: [], pendingSkills: [] };
 
     const registry = getRegistry();
-    const verifier = new SkillVerifier(this.baseDir);
+    const verifier = new SkillVerifier(this.skillsDir);
     const approvedSkills: SkillMeta[] = [];
-    const dirs = fs.readdirSync(this.baseDir, { withFileTypes: true }).filter(d => d.isDirectory());
+    const dirs = fs.readdirSync(this.skillsDir, { withFileTypes: true }).filter(d => d.isDirectory());
 
     for (const dir of dirs) {
-      const skillPath = path.join(this.baseDir, dir.name, 'SKILL.md');
+      const skillPath = path.join(this.skillsDir, dir.name, 'SKILL.md');
       if (!fs.existsSync(skillPath)) continue;
       const content = fs.readFileSync(skillPath, 'utf-8');
       const meta = this.parseFrontmatter(content);
@@ -68,7 +74,14 @@ export class SkillLoader {
       }
     }
 
-    return { approvedSkills, pendingSkills: registry.listPending().map(p => ({ ...p, report: null as any, submittedAt: new Date() })) };
+    // Fix: preserve report and original submittedAt from pending skills
+    const pendingSkills: PendingSkill[] = registry.listPending().map(p => ({
+      ...p,
+      report: p.report ?? null,
+      submittedAt: p.submittedAt ?? new Date(),
+    }));
+
+    return { approvedSkills, pendingSkills };
   }
 
   private parseFrontmatter(md: string): Record<string, unknown> | null {
