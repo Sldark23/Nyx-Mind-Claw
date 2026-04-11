@@ -11,7 +11,13 @@ export class SkillExecutor {
     if (!registry.isApproved(skill.name)) {
       throw new Error(`Skill "${skill.name}" is not approved. Run verification first.`);
     }
-    const content = await fs.readFile(skill.path, 'utf-8');
+    let content: string;
+    try {
+      content = await fs.readFile(skill.path, 'utf-8');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to read skill file "${skill.path}": ${msg}`);
+    }
     return this.loop.run(userInput, content);
   }
 }

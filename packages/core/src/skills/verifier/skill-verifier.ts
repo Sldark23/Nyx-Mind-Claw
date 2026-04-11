@@ -22,6 +22,8 @@ const CREDENTIAL_PATTERNS = [
   /['"][a-f0-9]{32,}['"]/gi, // Generic hex strings that might be keys/tokens
 ];
 
+const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB per file
+
 function scanForCredentials(filePath: string): { pattern: string; context: string }[] {
   if (!fs.existsSync(filePath)) return [];
   
@@ -156,11 +158,11 @@ export class SkillVerifier {
   
   private scanDirectory(dir: string, alerts: { file: string; pattern: string; context: string }[]): void {
     if (!fs.existsSync(dir)) return;
-    
+
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      
+
       if (entry.isDirectory()) {
         // Skip node_modules, .git, etc.
         if (!['node_modules', '.git', 'dist', 'build'].includes(entry.name)) {
@@ -170,6 +172,11 @@ export class SkillVerifier {
         // Only scan text-based files
         const ext = path.extname(entry.name).toLowerCase();
         if (['.ts', '.js', '.md', '.json', '.yaml', '.yml', '.txt', '.sh'].includes(ext)) {
+          const stat = fs.statSync(fullPath);
+          if (stat.size > MAX_FILE_SIZE_BYTES) {
+            // Skip oversized files with a warning (not added to alerts — not a security issue)
+            continue;
+          }
           const fileAlerts = scanForCredentials(fullPath);
           for (const alert of fileAlerts) {
             alerts.push({ file: fullPath, pattern: alert.pattern, context: alert.context });

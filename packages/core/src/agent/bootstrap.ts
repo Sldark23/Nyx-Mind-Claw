@@ -20,6 +20,70 @@ export interface BootstrapAnswers {
   userRole?: string;
 }
 
+/** Reason why a bootstrap answer is invalid, keyed by field. */
+export type BootstrapValidationError = {
+  [K in keyof BootstrapAnswers]?: string;
+};
+
+const MAX_STRING_LENGTH = 80;
+
+// IANA timezone validation — cheap check using Intl.DateTimeFormat
+function isValidTimezone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate a single bootstrap answer value.
+ * Returns an error message string if invalid, undefined if valid.
+ */
+export function validateBootstrapAnswer(
+  key: keyof BootstrapAnswers,
+  value: string
+): string | undefined {
+  if (!value || typeof value !== 'string') return 'Answer is required';
+  const trimmed = value.trim();
+  if (!trimmed) return 'Answer is required';
+  if (trimmed.length > MAX_STRING_LENGTH) return `Max ${MAX_STRING_LENGTH} characters`;
+
+  switch (key) {
+    case 'agentTimezone':
+    case 'userTimezone':
+      if (!isValidTimezone(trimmed)) return 'Invalid timezone (e.g. America/Sao_Paulo, UTC)';
+      break;
+    case 'userVibe':
+    case 'agentVibe':
+      // Free-form but must be reasonable
+      if (trimmed.length < 2) return 'Please be more specific';
+      break;
+    default:
+      break;
+  }
+  return undefined;
+}
+
+/**
+ * Validate all answers in a BootstrapAnswers object.
+ * Returns an object with field-level error messages (empty if all valid).
+ */
+export function validateBootstrapProfile(
+  answers: Partial<BootstrapAnswers>
+): BootstrapValidationError {
+  const errors: BootstrapValidationError = {};
+  for (const key of Object.keys(answers) as (keyof BootstrapAnswers)[]) {
+    const val = answers[key];
+    if (typeof val === 'string') {
+      const err = validateBootstrapAnswer(key, val);
+      if (err) errors[key] = err;
+    }
+  }
+  return errors;
+}
+
 export interface BootstrapProfile {
   version: number;
   completedAt?: string;

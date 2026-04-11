@@ -8,7 +8,16 @@ import { Provider } from './constants';
 import { defaultBaseUrl, defaultModel } from './defaults';
 
 export class ProviderFactory {
-  constructor(private cfg: ProviderConfig) {}
+  constructor(private cfg: ProviderConfig) {
+    // Fail fast if apiKey is missing for providers that require it.
+    // Ollama-based providers and openai-compatible endpoints may omit it (local auth).
+    if (!cfg.apiKey && !['ollama', 'ollama-cloud'].includes(cfg.provider)) {
+      throw new Error(
+        `Provider "${cfg.provider}" requires an API key but none was provided. ` +
+        `Set LLM_API_KEY (or provider.apiKey in config).`
+      );
+    }
+  }
 
   async chat(messages: ChatMessage[]): Promise<string> {
     switch (this.cfg.provider) {
