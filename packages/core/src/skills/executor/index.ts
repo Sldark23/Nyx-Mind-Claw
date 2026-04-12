@@ -15,8 +15,12 @@ export class SkillExecutor {
     try {
       content = await fs.readFile(skill.path, 'utf-8');
     } catch (err) {
+      const fileErr = err as NodeJS.ErrnoException;
+      if (fileErr?.code === 'ENOENT') {
+        throw new Error(`Skill "${skill.name}" is missing at "${skill.path}". Reinstall or restore the skill file before retrying.`);
+      }
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to read skill file "${skill.path}": ${msg}`);
+      throw new Error(`Failed to read skill file "${skill.path}" for skill "${skill.name}": ${msg}`);
     }
     return this.loop.run(userInput, content);
   }
