@@ -26,6 +26,13 @@ export type BootstrapValidationError = {
 };
 
 const MAX_STRING_LENGTH = 80;
+const MIN_NAME_LENGTH = 2;
+const MAX_NAME_LENGTH = 40;
+const MIN_ROLE_LENGTH = 2;
+const MAX_ROLE_LENGTH = 60;
+const MIN_VIBE_LENGTH = 2;
+const NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} .,'’_-]*$/u;
+const ROLE_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} .,'’_\-/()&+]*$/u;
 
 // IANA timezone validation — cheap check using Intl.DateTimeFormat
 function isValidTimezone(tz: string): boolean {
@@ -35,6 +42,20 @@ function isValidTimezone(tz: string): boolean {
   } catch {
     return false;
   }
+}
+
+function validateName(value: string, label: string): string | undefined {
+  if (value.length < MIN_NAME_LENGTH) return `${label} must be at least ${MIN_NAME_LENGTH} characters`;
+  if (value.length > MAX_NAME_LENGTH) return `${label} must be at most ${MAX_NAME_LENGTH} characters`;
+  if (!NAME_PATTERN.test(value)) return `${label} contains unsupported characters`;
+  return undefined;
+}
+
+function validateRole(value: string): string | undefined {
+  if (value.length < MIN_ROLE_LENGTH) return `Role must be at least ${MIN_ROLE_LENGTH} characters`;
+  if (value.length > MAX_ROLE_LENGTH) return `Role must be at most ${MAX_ROLE_LENGTH} characters`;
+  if (!ROLE_PATTERN.test(value)) return 'Role contains unsupported characters';
+  return undefined;
 }
 
 /**
@@ -55,10 +76,16 @@ export function validateBootstrapAnswer(
     case 'userTimezone':
       if (!isValidTimezone(trimmed)) return 'Invalid timezone (e.g. America/Sao_Paulo, UTC)';
       break;
+    case 'userName':
+      return validateName(trimmed, 'User name');
+    case 'agentName':
+      return validateName(trimmed, 'Agent name');
+    case 'userRole':
+      return validateRole(trimmed);
     case 'userVibe':
     case 'agentVibe':
       // Free-form but must be reasonable
-      if (trimmed.length < 2) return 'Please be more specific';
+      if (trimmed.length < MIN_VIBE_LENGTH) return 'Please be more specific';
       break;
     default:
       break;
