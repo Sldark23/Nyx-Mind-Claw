@@ -178,26 +178,114 @@ export class MemoryManager {
     }
   }
 
-  /** Query graph memory for relevant context. */
+  /** Query graph memory for relevant context. Falls back to empty results if graph memory is unavailable. */
   queryMemory(query: string, topK = 5): MemoryResult[] {
-    return this.graph.search(query, topK);
+    try {
+      return this.graph.search(query, topK);
+    } catch {
+      return [];
+    }
   }
 
-  /** Get all entities related to a given entity name. */
-  getRelatedEntities(entityName: string, limit = 10) {
-    const entity = this.graph.getEntityByName(entityName);
-    if (!entity) return [];
-    return this.graph.getRelatedEntities(entity.id, limit);
+  /** Get all entities related to a given entity name. Falls back to empty array if unavailable. */
+  getRelatedEntities(entityName: string, limit = 10): Array<{ entity: Entity; relationship: string; weight: number }> {
+    try {
+      const entity = this.graph.getEntityByName(entityName);
+      if (!entity) return [];
+      return this.graph.getRelatedEntities(entity.id, limit);
+    } catch {
+      return [];
+    }
   }
 
-  /** Build context string for system prompt injection. */
+  /** Build context string for system prompt injection. Falls back to empty string if unavailable. */
   buildMemoryContext(query: string, maxChars = 2000): string {
-    return this.graph.buildContext(query, maxChars);
+    try {
+      return this.graph.buildContext(query, maxChars);
+    } catch {
+      return '';
+    }
   }
 
-  /** Consolidate graph memory (merge duplicates, compress old). */
+  /** Consolidate graph memory (merge duplicates, compress old). Falls back to zero counts if unavailable. */
   consolidateMemory(): { merged: number; deleted: number } {
-    return this.graph.consolidate();
+    try {
+      return this.graph.consolidate();
+    } catch {
+      return { merged: 0, deleted: 0 };
+    }
+  }
+
+  /**
+   * Returns true when the database and graph memory are both operational.
+   * After a failed initialization this may return false even though
+   * the manager remains usable with in-memory fallbacks.
+   */
+  isHealthy(): boolean {
+    try {
+      // A quick probe query — if either underlying store is a dummy, health is degraded
+      this.db.prepare('SELECT 1').get();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Returns a human-readable snapshot of the manager's health state,
+   * useful for debugging and status endpoints.
+   */
+  getStatus(): {
+    healthy: boolean;
+    dbKind: 'real' | 'dummy';
+    graphKind: 'real' | 'dummy';
+    dbPath: string;
+    conversationCount: number;
+    messageCount: number;
+  } {
+    const isDummy = (obj: unknown): boolean => {
+      return !obj || (typeof obj === 'object' && Object.keys(obj).length === 0);
+    };
+
+    let conversationCount = 0;
+    let messageCount = 0;
+    try {
+      const row = this.db.prepare('SELECT COUNT(*) as c FROM conversations').get() as { c: number } | undefined;
+      conversationCount = row?.c ?? 0;
+      const mRow = this.db.prepare('SELECT COUNT(*) as c FROM messages').get() as { c: number } | undefined;
+      messageCount = mRow?.c ?? 0;
+    } catch {
+      // counting not available on dummy db
+    }
+
+    return {
+      healthy: this.isHealthy(),
+      dbKind: isDummy((this.db as unknown as Record<string, unknown>).exec) ? 'dummy' : 'real',
+      graphKind: 'real', // graph is only exposed as real when real
+      dbPath: this['dbPath'] ?? 'unknown',
+      conversationCount,
+      messageCount,
+    };
+  }
+
+  /**
+   * Attempt to re-initialise the manager after a failed startup.
+   * Call this only when the underlying DB becomes available.
+   * Idempotent — returns silently if already healthy.
+   */
+  reset(dbPath?: string): void {
+    if (this.isHealthy()) return;
+    if (dbPath) this['dbPath'] = dbPath;
+    try {
+      // Re-open the real database and re-run init
+      const path = this['dbPath'] as string || './data/nyxmind.db';
+      this.db = new Database(path);
+      this.db.pragma('journal_mode = WAL');
+      this.graph = new GraphMemory(path.replace('.db', '-graph.db'), this.db);
+      this.init();
+    } catch (err) {
+      console.warn(`[MemoryManager] reset() failed: ${err}. Manager remains in degraded state.`);
+    }
   }
 
   // ── Bootstrap profile ──────────────────────────────────────────────────────
