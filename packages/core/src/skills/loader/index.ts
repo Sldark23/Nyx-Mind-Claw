@@ -14,6 +14,19 @@ export class SkillLoader {
     this.skillsDir = baseDir ?? getDirs().skills ?? '.agents/skills';
   }
 
+  private trigger(meta: Record<string, unknown>, skillName?: string, skillPath?: string): string | undefined {
+    if (typeof meta.trigger !== 'string') return undefined;
+    try {
+      new RegExp(meta.trigger, 'i');
+      return meta.trigger;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const location = skillPath ? ` (${skillPath})` : '';
+      console.warn(`[skills] Invalid trigger regex for skill "${skillName ?? 'unknown'}"${location}: ${msg}`);
+      return undefined;
+    }
+  }
+
   loadAll(): SkillMeta[] {
     if (!fs.existsSync(this.skillsDir)) return [];
 
@@ -32,15 +45,17 @@ export class SkillLoader {
       const skillName = meta.name as string;
 
       // Bundled skills bypass verification (pre-approved)
+      const trigger = this.trigger(meta, skillName, skillPath);
+
       if (BUNDLED_SKILLS.has(skillName)) {
-        skills.push({ name: skillName, description: this.desc(meta), trigger: this.trigger(meta), path: skillPath });
+        skills.push({ name: skillName, description: this.desc(meta), trigger, path: skillPath });
         continue;
       }
 
       // Non-bundled: verify and register
       registry.verifyAndRegister(skillPath, verifier);
       if (registry.isApproved(skillName)) {
-        skills.push({ name: skillName, description: this.desc(meta), trigger: this.trigger(meta), path: skillPath });
+        skills.push({ name: skillName, description: this.desc(meta), trigger, path: skillPath });
       }
     }
 
@@ -64,12 +79,14 @@ export class SkillLoader {
 
       const skillName = meta.name as string;
 
+      const trigger = this.trigger(meta, skillName, skillPath);
+
       if (BUNDLED_SKILLS.has(skillName)) {
-        approvedSkills.push({ name: skillName, description: this.desc(meta), trigger: this.trigger(meta), path: skillPath });
+        approvedSkills.push({ name: skillName, description: this.desc(meta), trigger, path: skillPath });
       } else {
         registry.verifyAndRegister(skillPath, verifier);
         if (registry.isApproved(skillName)) {
-          approvedSkills.push({ name: skillName, description: this.desc(meta), trigger: this.trigger(meta), path: skillPath });
+          approvedSkills.push({ name: skillName, description: this.desc(meta), trigger, path: skillPath });
         }
       }
     }
@@ -94,10 +111,6 @@ export class SkillLoader {
 
   private desc(meta: Record<string, unknown>): string {
     return typeof meta.description === 'string' ? meta.description : '';
-  }
-
-  private trigger(meta: Record<string, unknown>): string | undefined {
-    return typeof meta.trigger === 'string' ? meta.trigger : undefined;
   }
 }
 

@@ -9,13 +9,12 @@ export class SkillRouter {
 
     // 1. Fast path: match trigger patterns (test once, no double-match)
     for (const skill of skills) {
-      if (skill.trigger) {
-        try {
-          const re = new RegExp(skill.trigger, 'i');
-          if (re.test(userInput)) return skill.name;
-        } catch {
-          // invalid regex — skip silently
-        }
+      if (!skill.trigger) continue;
+      try {
+        if (new RegExp(skill.trigger, 'i').test(userInput)) return skill.name;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[skills] Ignoring invalid trigger regex for skill "${skill.name}": ${msg}`);
       }
     }
 
