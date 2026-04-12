@@ -66,8 +66,8 @@ export class LlmCall {
     if (msg.includes('econnreset') || msg.includes('timeout') || msg.includes('enotfound')) return true;
     // HTTP 429 (rate limit) or 5xx
     if (/\b(429|500|502|503|504)\b/.test(msg)) return true;
-    // OpenAI specific
-    if (msg.includes('reduce') || msg.includes('timeout')) return true;
+    // OpenAI specific overload errors
+    if (msg.includes('reduce')) return true;
     return false;
   }
 
