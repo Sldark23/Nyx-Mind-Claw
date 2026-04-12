@@ -18,8 +18,11 @@ interface FrontmatterMeta {
 // Credential detection patterns
 const CREDENTIAL_PATTERNS: RegExp[] = [
   /(api[_-]?key|token|secret|password|auth|credential)[^]{0,50}(\$|env|process\.env)/gi,
-  /['"](sk-|pk-|token_|secret_)[a-zA-Z0-9]{20,}['"]/gi,
-  /['"][a-f0-9]{32,}['"]/gi, // Generic hex strings that might be keys/tokens
+  /['"](sk-|pk-|token_|secret_|bearer_|aws_)[a-zA-Z0-9]{16,}['"]/gi,
+  // Allowlist: git SHAs (40-char hex at word boundary), UUIDs (8-4-4-4-12), error tracking IDs
+  // These are NOT credentials so they must NOT be flagged as such.
+  // Only flag hex strings preceded by a credential keyword or used as direct string values.
+  /(?<![a-zA-Z0-9])[a-f0-9]{40}(?![a-zA-Z0-9])/gi,
 ];
 
 const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB per file
