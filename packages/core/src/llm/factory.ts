@@ -7,11 +7,25 @@ import { ProviderConfig } from './config';
 import { Provider } from './constants';
 import { defaultBaseUrl, defaultModel } from './defaults';
 
+const DEFAULT_TIMEOUT_MS = 60_000; // 60s
+
+/**
+ * Wrap a promise with an AbortSignal-based timeout.
+ * If the timeout fires first, the returned promise rejects.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  return promise
+    .then(result => { clearTimeout(timeout); return result; })
+    .catch(err => { clearTimeout(timeout); if (err instanceof Error && err.name === 'AbortError') throw new Error(`LLM call timed out after ${ms}ms`); throw err; });
+}
+
 export class ProviderFactory {
   constructor(private cfg: ProviderConfig) {
     // Fail fast if apiKey is missing for providers that require it.
-    // Ollama-based providers and openai-compatible endpoints may omit it (local auth).
-    if (!cfg.apiKey && !['ollama', 'ollama-cloud'].includes(cfg.provider)) {
+    // Ollama-based providers, LMStudio, VLLM and openai-compatible endpoints may omit it (local auth).
+    if (!cfg.apiKey && !['ollama', 'ollama-cloud', 'lmstudio', 'vllm'].includes(cfg.provider)) {
       throw new Error(
         `Provider "${cfg.provider}" requires an API key but none was provided. ` +
         `Set LLM_API_KEY (or provider.apiKey in config).`
@@ -34,6 +48,14 @@ export class ProviderFactory {
       case 'groq': return this.chatGroq(messages);
       case 'grok': return this.chatGrok(messages);
       case 'minimax': return this.chatMinimax(messages);
+      case 'huggingface': return this.chatHuggingFace(messages);
+      case 'cerebras': return this.chatCerebras(messages);
+      case 'fireworks': return this.chatFireworks(messages);
+      case 'openrouter': return this.chatOpenRouter(messages);
+      case 'vllm': return this.chatVLLM(messages);
+      case 'lmstudio': return this.chatLMStudio(messages);
+      case 'azure': return this.chatAzure(messages);
+      case 'dashscope': return this.chatDashScope(messages);
       default: return this.chatOpenAICompatible(messages);
     }
   }
@@ -52,11 +74,11 @@ export class ProviderFactory {
     const baseURL = this.cfg.baseUrl || defaultBaseUrl(this.cfg.provider);
     if (!this.cfg.apiKey) throw new Error('API key not configured');
     const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
-    const resp = await client.chat.completions.create({
+    const resp = await withTimeout(client.chat.completions.create({
       model: this.cfg.model || defaultModel(this.cfg.provider),
       messages: messages as unknown as OpenAI.Chat.ChatCompletionMessage[],
       temperature: 0.7,
-    });
+    }), DEFAULT_TIMEOUT_MS);
     return resp.choices[0]?.message?.content || '';
   }
 
@@ -64,12 +86,12 @@ export class ProviderFactory {
     const client = new Anthropic({ apiKey: this.cfg.apiKey || '' });
     const system = this.systemMsg(messages);
     const chatMsgs = this.chatMsgs(messages);
-    const resp = await client.messages.create({
+    const resp = await withTimeout(client.messages.create({
       model: this.cfg.model || 'claude-3-5-sonnet-20241022',
       max_tokens: 2048,
       system,
       messages: chatMsgs as Anthropic.Messages.MessageParam[],
-    });
+    }), DEFAULT_TIMEOUT_MS);
     return resp.content[0]?.type === 'text' ? resp.content[0].text : '';
   }
 
@@ -77,10 +99,10 @@ export class ProviderFactory {
   private async chatOllama(messages: ChatMessage[]): Promise<string> {
     const ollama = new Ollama({ host: this.cfg.baseUrl || 'http://localhost:11434' });
     const chatMsgs = this.chatMsgs(messages);
-    const resp = await ollama.chat({
+    const resp = await withTimeout(ollama.chat({
       model: this.cfg.model || 'llama3.1',
       messages: chatMsgs as Array<{ role: string; content: string }>,
-    });
+    }), DEFAULT_TIMEOUT_MS);
     return resp.message.content;
   }
 
@@ -118,14 +140,14 @@ export class ProviderFactory {
     const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
     const system = this.systemMsg(messages);
     const chatMsgs = this.chatMsgs(messages);
-    const resp = await client.chat.completions.create({
+    const resp = await withTimeout(client.chat.completions.create({
       model: this.cfg.model || 'deepseek-chat',
       messages: [
         ...(system ? [{ role: 'system' as const, content: system }] : []),
         ...chatMsgs,
       ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
       temperature: 0.7,
-    });
+    }), DEFAULT_TIMEOUT_MS);
     return resp.choices[0]?.message?.content || '';
   }
 
@@ -176,7 +198,7 @@ export class ProviderFactory {
   private async chatMistral(messages: ChatMessage[]): Promise<string> {
     const baseURL = this.cfg.baseUrl || 'https://api.mistral.ai/v1';
     if (!this.cfg.apiKey) throw new Error('MISTRAL_API_KEY not set');
-    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
     const system = this.systemMsg(messages);
     const chatMsgs = this.chatMsgs(messages);
     const resp = await client.chat.completions.create({
@@ -194,7 +216,7 @@ export class ProviderFactory {
   private async chatPerplexity(messages: ChatMessage[]): Promise<string> {
     const baseURL = this.cfg.baseUrl || 'https://api.perplexity.ai';
     if (!this.cfg.apiKey) throw new Error('PERPLEXITY_API_KEY not set');
-    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
     const system = this.systemMsg(messages);
     const chatMsgs = this.chatMsgs(messages);
     const resp = await client.chat.completions.create({
@@ -212,13 +234,156 @@ export class ProviderFactory {
   private async chatTogether(messages: ChatMessage[]): Promise<string> {
     const baseURL = this.cfg.baseUrl || 'https://api.together.xyz/v1';
     if (!this.cfg.apiKey) throw new Error('TOGETHER_API_KEY not set');
-    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
     const system = this.systemMsg(messages);
     const chatMsgs = this.chatMsgs(messages);
     const resp = await client.chat.completions.create({
       model: this.cfg.model || 'meta-llama/Llama-3-70b-chat-hf',
       messages: [
-        ...(system ? [{ role: 'system' as const, content: system } as const] : []),
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── HuggingFace (OpenAI-compatible Inference API) ─────────────
+  private async chatHuggingFace(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://api-inference.huggingface.co/v1';
+    if (!this.cfg.apiKey) throw new Error('HUGGINGFACE_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'meta-llama/Meta-Llama-3-70B-Instruct',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── Cerebras (OpenAI-compatible) ──────────────────────────────
+  private async chatCerebras(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://api.cerebras.ai/v1';
+    if (!this.cfg.apiKey) throw new Error('CEREBRAS_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'llama3.1-70b',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── Fireworks AI (OpenAI-compatible) ──────────────────────────
+  private async chatFireworks(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://api.fireworks.ai/inference/v1';
+    if (!this.cfg.apiKey) throw new Error('FIREWORKS_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'accounts/fireworks/models/llama-v3p1-70b-instruct',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── OpenRouter (OpenAI-compatible) ───────────────────────────
+  private async chatOpenRouter(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://openrouter.ai/api/v1';
+    if (!this.cfg.apiKey) throw new Error('OPENROUTER_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'meta-llama/llama-3.1-70b-instruct',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── VLLM (OpenAI-compatible local server) ─────────────────────
+  private async chatVLLM(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'http://localhost:8000/v1';
+    const client = new OpenAI({ apiKey: this.cfg.apiKey || 'vllm', baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'meta-llama/Llama-3-70b-chat-hf',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── LMStudio (OpenAI-compatible local server) ─────────────────
+  private async chatLMStudio(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'http://localhost:1234/v1';
+    const client = new OpenAI({ apiKey: this.cfg.apiKey || 'lmstudio', baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'local-model',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── Azure OpenAI (OpenAI-compatible) ──────────────────────────
+  private async chatAzure(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl;
+    if (!baseURL) throw new Error('AZURE_BASE_URL not set. Format: https://{resource}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version={version}');
+    if (!this.cfg.apiKey) throw new Error('AZURE_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'gpt-4o',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    });
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── DashScope (Alibaba/Qwen, OpenAI-compatible) ───────────────
+  private async chatDashScope(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    if (!this.cfg.apiKey) throw new Error('DASHSCOPE_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL, timeout: DEFAULT_TIMEOUT_MS });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await client.chat.completions.create({
+      model: this.cfg.model || 'qwen-plus',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
         ...chatMsgs,
       ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
       temperature: 0.7,

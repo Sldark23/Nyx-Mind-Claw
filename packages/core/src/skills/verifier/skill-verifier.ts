@@ -25,7 +25,7 @@ const CREDENTIAL_PATTERNS: RegExp[] = [
   /(?<![a-zA-Z0-9])[a-f0-9]{40}(?![a-zA-Z0-9])/gi,
 ];
 
-const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB per file
+const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB per file — prevents memory issues from large scans
 
 function scanForCredentials(filePath: string): { pattern: string; context: string }[] {
   if (!fs.existsSync(filePath)) return [];

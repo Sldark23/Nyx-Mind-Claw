@@ -145,20 +145,10 @@ export class SkillRegistry extends EventEmitter {
     const skills: SkillMeta[] = [];
     for (const name of this.approvedSkills) {
       const meta = BUNDLED_SKILLS_META[name];
-      skills.push({
-        name,
-        description: meta?.description ?? '',
-        path: meta?.path ?? '',
-      });
-    }
-    for (const name of BUNDLED_SKILLS) {
-      if (!this.approvedSkills.has(name)) {
-        const meta = BUNDLED_SKILLS_META[name];
-        skills.push({
-          name,
-          description: meta?.description ?? '',
-          path: meta?.path ?? '',
-        });
+      if (meta) {
+        skills.push({ name, description: meta.description, path: meta.path });
+      } else {
+        skills.push({ name, description: '', path: '' });
       }
     }
     return skills;
