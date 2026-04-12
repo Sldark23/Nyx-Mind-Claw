@@ -26,7 +26,25 @@ export const ProviderConfigSchema = z.object({
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 
 export function validateConfig(cfg: unknown): ProviderConfig {
-  return ProviderConfigSchema.parse(cfg);
+  const result = ProviderConfigSchema.safeParse(cfg);
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      console.warn(`[config] invalid "${issue.path.join('.')}" (${issue.code}): ${issue.message}`);
+    }
+    // Attempt with defaults applied to problematic fields
+    const issues = result.error.issues;
+    const defaulted = { ...cfg as Record<string, unknown> };
+    for (const issue of issues) {
+      const key = issue.path[0] as string;
+      if (key in defaulted) {
+        delete defaulted[key];
+      }
+    }
+    const retry = ProviderConfigSchema.safeParse({ ...defaulted });
+    if (retry.success) return retry.data;
+    return { provider: 'openai', apiKey: '' };
+  }
+  return result.data;
 }
 
 export function configFromEnv(): ProviderConfig {
