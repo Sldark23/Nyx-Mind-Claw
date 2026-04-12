@@ -1,36 +1,141 @@
 {
+  "$schema": "https://nyxmind.io/nyxmind-claw-config-v1.json",
+
+  "nodeEnv": "development",
+
+  "agentName": "NyxMindClaw",
+
+  "locale": "en",
+
+  "workspace": ".agents/workspace",
+
   "llm": {
     "provider": "openai",
     "apiKey": "",
     "model": "gpt-4o-mini",
     "baseUrl": ""
   },
+
   "iterations": 5,
+
   "memoryWindow": 20,
+
   "dirs": {
     "data": "./data",
     "tmp": "./tmp",
     "skills": ".agents/skills"
   },
+
   "limits": {
     "maxFileSizeMb": 20,
     "maxAudioSizeMb": 10,
     "rateLimitPerMinute": 20,
     "allowedUserIds": []
   },
+
   "channels": {
     "telegram": {
+      "enabled": false,
       "botToken": "",
-      "allowedIds": []
+      "allowedIds": [],
+      "rateLimit": 20
     },
     "discord": {
-      "token": ""
+      "enabled": false,
+      "token": "",
+      "groupPolicy": "allowlist",
+      "guilds": {}
     },
     "whatsapp": {
       "enabled": false
     }
   },
+
   "database": {
     "url": "mongodb://localhost:27017/nyxmind"
+  },
+
+  "approval": {
+    "mode": "auto",
+    "dangerousTools": [],
+    "requireApprovalFor": []
+  },
+
+  "logging": {
+    "level": "info",
+    "pretty": true
+  },
+
+  "telemetry": {
+    "enabled": false,
+    "endpoint": ""
+  },
+
+  "gateway": {
+    "auth": {
+      "mode": "token",
+      "token": ""
+    },
+    "mode": "local",
+    "port": 18789,
+    "bind": "lan",
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "controlUi": {
+      "allowInsecureAuth": false
+    }
+  },
+
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+
+  "tools": {
+    "profile": "general",
+    "web": {
+      "search": {
+        "enabled": true,
+        "provider": "openai",
+        "openaiCodex": {}
+      },
+      "fetch": {
+        "enabled": true
+      }
+    }
+  },
+
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "gpt-4o-mini"
+      },
+      "workspace": ".agents/workspace",
+      "models": {}
+    }
+  },
+
+  "models": {
+    "providers": {},
+    "mode": "merge"
+  },
+
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {}
+    }
+  },
+
+  "wizard": {
+    "lastRunAt": "",
+    "lastRunVersion": "",
+    "lastRunCommand": "",
+    "lastRunMode": ""
+  },
+
+  "plugins": {
+    "entries": {}
   }
 }
