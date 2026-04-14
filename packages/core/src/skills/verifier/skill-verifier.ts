@@ -195,6 +195,9 @@ export class SkillVerifier {
    * For production code, prefer verify() directly.
    */
   verifySync(skillPath: string): VerificationReport {
+    // NOTE: verifySync delegates to the standalone verifySkillSync() which uses
+    // only synchronous fs operations. The name is intentional — callers get a
+    // concrete VerificationReport, not a Promise. For async contexts prefer verify().
     return verifySkillSync(skillPath, this.baseDir);
   }
 }

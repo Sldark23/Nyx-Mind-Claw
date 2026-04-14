@@ -27,7 +27,7 @@ export interface MarketplaceEntry {
 export type Marketplace = Record<string, MarketplaceEntry>;
 
 const GITHUB_RAW = 'https://raw.githubusercontent.com/Sldark23/skills-nyxmindclaw/main';
-const AUTHOR = 'nyxmind';
+const AUTHOR='***';
 const VERSION = '1.0.0';
 
 const DEFAULT_MARKETPLACE: Marketplace = {
@@ -87,43 +87,6 @@ const DEFAULT_MARKETPLACE: Marketplace = {
     author: AUTHOR,
     version: VERSION,
     triggers: ['slide', 'slides', 'presentation', 'powerpoint', 'pptx', 'marp', 'reveal', 'apresentacao', 'demo', 'pitch'],
-  },
-
-  // === Legacy openclaw skills (still available) ===
-  'brain-sync': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/brain-sync/SKILL.md',
-    description: 'Sync notes between Obsidian vault and external services',
-    author: 'openclaw',
-    version: '1.0.0',
-    triggers: ['sync', 'vault', 'obsidian'],
-  },
-  'autoresearch': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/autoresearch/SKILL.md',
-    description: 'Deep research on any topic using web search and summarization',
-    author: 'openclaw',
-    version: '1.0.0',
-    triggers: ['research', 'search', 'investigate'],
-  },
-  'proactivity': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/proactivity/SKILL.md',
-    description: 'Anticipates needs, keeps work moving, improves throughput',
-    author: 'openclaw',
-    version: '1.0.0',
-    triggers: ['proactive', 'automate', 'improve'],
-  },
-  'article-builder-news': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/article-builder-news/SKILL.md',
-    description: 'Generate and publish news articles to WordPress',
-    author: 'openclaw',
-    version: '1.0.0',
-    triggers: ['article', 'blog', 'news', 'wordpress'],
-  },
-  'humanizer': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/humanizer/SKILL.md',
-    description: 'Remove signs of AI-generated writing from text',
-    author: 'openclaw',
-    version: '1.0.0',
-    triggers: ['humanize', 'ai-text', 'writing'],
   },
 };
 
