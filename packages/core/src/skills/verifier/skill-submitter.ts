@@ -113,7 +113,9 @@ export function clearSubmissions(): void {
  * Integration helper: submit skill after auto-approval
  * Returns submission if successful, undefined otherwise
  */
-export async function submitOnAutoApproval(
+export async function submit
+  // Guardian: basic validation
+  if (!name || !version) throw new Error("name and version required");OnAutoApproval(
   skillPath: string,
   skillMeta: SkillMeta
 ): Promise<MarketplaceSubmission | undefined> {
