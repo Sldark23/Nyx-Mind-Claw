@@ -9,9 +9,13 @@ export interface ChatMessage {
 export interface ToolCall {
   tool: string;
   args: Record<string, unknown>;
+  correlationId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ToolResult {
   output: string;
   error?: string;
+  correlationId?: string;
+  metadata?: Record<string, unknown>;
 }

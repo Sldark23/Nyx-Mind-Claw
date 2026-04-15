@@ -14,11 +14,12 @@ export class ToolExecutor {
 
   async execute(call: ToolCall): Promise<string> {
     const { registry } = this.deps;
+    const correlationId = call.correlationId ?? crypto.randomUUID();
 
     try {
       return await registry.execute(call.tool, call.args as Record<string, unknown>);
     } catch (err: any) {
-      return `Tool error: ${err.message}`;
+      return `Tool error [${correlationId}]: ${err.message}`;
     }
   }
 }
