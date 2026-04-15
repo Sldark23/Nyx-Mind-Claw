@@ -150,10 +150,18 @@ const server = http.createServer((req, res) => {
         let result;
         try {
           switch (action) {
-            case 'navigate':
-              await page.goto(params.url, { waitUntil: 'networkidle2' });
-              result = { url: page.url(), title: await page.title() };
+            case 'navigate': {
+              let navResult;
+              try {
+                await page.goto(params.url, { waitUntil: 'networkidle2', timeout: 15000 });
+                navResult = { url: page.url(), title: await page.title() };
+              } catch (navErr) {
+                const errMsg = navErr instanceof Error ? navErr.message : String(navErr);
+                navResult = { error: 'Navigation failed: ' + errMsg };
+              }
+              result = navResult;
               break;
+            }
 
             case 'click':
               await page.click(params.selector);

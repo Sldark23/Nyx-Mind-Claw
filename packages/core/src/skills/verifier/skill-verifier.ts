@@ -191,8 +191,12 @@ export class SkillVerifier {
 
   /**
    * Synchronous verification stub.
-   * NOTE: the underlying verify() is async. This exists for sync-callers only.
-   * For production code, prefer verify() directly.
+   *
+   * NOTE: This method is truly synchronous — it uses only blocking fs operations
+   * (readFileSync, existsSync, statSync, readdirSync) and calls verifySkillSync().
+   * The async verify() method is preferred in production code.
+   * This sync variant exists only for callers that cannot use await (e.g., hot paths,
+   * CLI commands, or initial bootstrap before an async runtime is available).
    */
   verifySync(skillPath: string): VerificationReport {
     // NOTE: uses synchronous fs operations only; callers get a concrete report, not a Promise.

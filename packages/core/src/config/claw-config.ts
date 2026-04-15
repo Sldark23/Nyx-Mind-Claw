@@ -375,11 +375,16 @@ function envToPartialConfig(): Partial<NyxMindClawConfig> {
 /**
  * Recursively deep-merges `source` into `target`.
  *
- * Behavior by value type:
- * - **Object**: recursively merged key-by-key (nested objects merge deeply).
- * - **Array**: replaced entirely — the source array overwrites the target array;
- *   there is no concatenation, no index-wise zip, and no deduplication.
- * - **Primitive** (string, number, boolean, null, undefined): replaced entirely.
+ * ## Merge priority (highest to lowest)
+ * 1. `source` object keys override `target` keys at the same level.
+ * 2. Within nested objects, the same rule applies recursively.
+ * 3. Arrays are replaced entirely — source array overwrites target array.
+ * 4. Primitives are replaced entirely.
+ *
+ * In the config-loading pipeline:
+ *   deepMerge(envConfig, jsonConfig ?? {})
+ *   deepMerge(DEFAULT_CONFIG, base as Partial<ResolvedConfig>)
+ * Therefore final priority is: nyxmind-claw.json > environment variables > defaults.
  *
  * @param target - The base object to merge into.
  * @param source - The partial object with values to override or add.
