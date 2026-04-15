@@ -89,6 +89,17 @@ const ENTITY_TYPE_PRIORITY: Array<[string, RegExp]> = [
 const MAX_INPUT_CHARS = 10_000;
 
 /**
+ * Safely parse JSON, returning a fallback on failure.
+ */
+function safeJsonParse<T>(raw: string, fallback: T): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Extract candidate entities from a string using lightweight heuristics.
  * No LLM required.
  *
@@ -179,7 +190,7 @@ export class GraphMemory {
     const existing = this.db.prepare('SELECT * FROM graph_entities WHERE type = ? AND name_lower = ?').get(type, name.toLowerCase()) as any;
 
     if (existing) {
-      const props = JSON.parse(existing.properties || '{}');
+      const props = safeJsonParse(existing.properties, {});
       const updated = { ...props, ...properties };
       this.db.prepare('UPDATE graph_entities SET last_seen = ?, properties = ? WHERE id = ?')
         .run(Date.now(), JSON.stringify(updated), existing.id);
@@ -206,7 +217,7 @@ export class GraphMemory {
     if (!row) return null;
     return {
       id: row.id, type: row.type as Entity['type'], name: row.name,
-      properties: JSON.parse(row.properties || '{}'),
+      properties: safeJsonParse(row.properties, {}),
       firstSeen: row.first_seen, lastSeen: row.last_seen,
     };
   }
@@ -216,7 +227,7 @@ export class GraphMemory {
     if (!row) return null;
     return {
       id: row.id, type: row.type as Entity['type'], name: row.name,
-      properties: JSON.parse(row.properties || '{}'),
+      properties: safeJsonParse(row.properties, {}),
       firstSeen: row.first_seen, lastSeen: row.last_seen,
     };
   }
@@ -283,7 +294,7 @@ export class GraphMemory {
       conversationId: row.conversation_id,
       summary: row.summary,
       timestamp: row.timestamp,
-      entities: JSON.parse(row.entity_ids || '[]'),
+      entities: safeJsonParse(row.entity_ids, []),
     }));
   }
 
@@ -351,7 +362,7 @@ export class GraphMemory {
         score: 1.0,
         type: 'episodic',
         source: ep.conversation_id,
-        entities: JSON.parse(ep.entity_ids || '[]'),
+        entities: safeJsonParse(ep.entity_ids, []),
       });
     }
 
