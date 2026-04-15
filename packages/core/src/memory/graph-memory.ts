@@ -179,7 +179,7 @@ export class GraphMemory {
     const existing = this.db.prepare('SELECT * FROM graph_entities WHERE type = ? AND name_lower = ?').get(type, name.toLowerCase()) as any;
 
     if (existing) {
-      const props = safeJsonParse(existing.properties || '{}');
+      const props = safeJsonParse<Record<string, string>>(existing.properties || '{}') ?? {};
       const updated = { ...props, ...properties };
       this.db.prepare('UPDATE graph_entities SET last_seen = ?, properties = ? WHERE id = ?')
         .run(Date.now(), JSON.stringify(updated), existing.id);
@@ -206,7 +206,7 @@ export class GraphMemory {
     if (!row) return null;
     return {
       id: row.id, type: row.type as Entity['type'], name: row.name,
-      properties: safeJsonParse(row.properties || '{}'),
+      properties: safeJsonParse<Record<string, string>>(row.properties || '{}') ?? {},
       firstSeen: row.first_seen, lastSeen: row.last_seen,
     };
   }
@@ -216,7 +216,7 @@ export class GraphMemory {
     if (!row) return null;
     return {
       id: row.id, type: row.type as Entity['type'], name: row.name,
-      properties: safeJsonParse(row.properties || '{}'),
+      properties: safeJsonParse<Record<string, string>>(row.properties || '{}') ?? {},
       firstSeen: row.first_seen, lastSeen: row.last_seen,
     };
   }
@@ -283,7 +283,7 @@ export class GraphMemory {
       conversationId: row.conversation_id,
       summary: row.summary,
       timestamp: row.timestamp,
-      entities: safeJsonParse(row.entity_ids || '[]'),
+      entities: safeJsonParse<string[]>(row.entity_ids || '[]') ?? [],
     }));
   }
 
@@ -351,7 +351,7 @@ export class GraphMemory {
         score: 1.0,
         type: 'episodic',
         source: ep.conversation_id,
-        entities: safeJsonParse(ep.entity_ids || '[]'),
+        entities: safeJsonParse<string[]>(ep.entity_ids || '[]') ?? [],
       });
     }
 
@@ -407,7 +407,11 @@ export class GraphMemory {
   }
 }
 
-// ── Auto-added by guardian ────────────────────────────────────────────────────
-function safeJsonParse<T = any>(str: string, fallback: T): T {
-  try { return safeJsonParse(str); } catch { return fallback; }
+// ── Safe JSON parse helper ────────────────────────────────────────────────────
+function safeJsonParse<T = unknown>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
 }
