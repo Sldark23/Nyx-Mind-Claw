@@ -4,6 +4,7 @@ import { SkillMeta } from '../loader/types';
 
 // Bundled skills that come pre-approved with nyxmind
 // Auto-approval threshold: score >= 70 (configured in SkillRegistry)
+export const AUTO_APPROVAL_THRESHOLD = 70;
 export const BUNDLED_SKILLS = new Set<string>([
   'brain-sync',
   'proactivity',
@@ -89,21 +90,21 @@ export class SkillRegistry extends EventEmitter {
       this.emit('skill:pending', this.pendingSkills.get(skillName)!);
       return { approved: false, reason: 'Credential leak detected' };
     }
-    
-    // Auto-approve if score >= 70
-    if (report.score >= 70 && report.valid) {
+
+    // Auto-approve if score >= AUTO_APPROVAL_THRESHOLD and skill is valid
+    if (report.score >= AUTO_APPROVAL_THRESHOLD && report.valid) {
       this.approvedSkills.add(skillName);
       this.pendingSkills.delete(skillName);
       this.emit('skill:approved', skillName);
       return { approved: true, reason: `Auto-approved with score ${report.score}` };
     }
-    
-    // Add to pending if score < 70 or not valid
+
+    // Add to pending queue if not auto-approved
     let reason: string;
     if (!report.valid) {
       reason = 'Invalid skill structure';
-    } else if (report.score < 70) {
-      reason = `Score ${report.score} below threshold (70)`;
+    } else if (report.score < AUTO_APPROVAL_THRESHOLD) {
+      reason = `Score ${report.score} below auto-approval threshold (${AUTO_APPROVAL_THRESHOLD})`;
     } else {
       reason = 'Verification failed';
     }

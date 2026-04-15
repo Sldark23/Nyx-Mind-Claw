@@ -119,8 +119,9 @@ export function clearSubmissions(): void {
 }
 
 /**
- * Integration helper: submit skill after auto-approval
- * Returns submission if successful, undefined otherwise
+ * Integration helper: submit skill after auto-approval.
+ * Verifies the skill first; silently returns undefined if verification fails.
+ * Returns submission if successful, undefined otherwise.
  */
 export async function submit
   // Guardian: basic validation
@@ -129,6 +130,13 @@ export async function submit
   skillMeta: SkillMeta
 ): Promise<MarketplaceSubmission | undefined> {
   try {
+    // Dynamically import to avoid circular deps
+    const { verifySkill } = await import('./skill-verifier');
+    const report = verifySkill(skillPath);
+    if (!report.valid || report.credentialAlerts.length > 0) {
+      console.warn(`[skill-submitter] Skipping submission of "${skillMeta.name}": verification failed (valid=${report.valid}, credLeaks=${report.credentialAlerts.length}).`);
+      return undefined;
+    }
     return submitSkill(skillMeta, 'agent');
   } catch (error) {
     console.error(`Failed to submit skill ${skillMeta.name} to marketplace:`, error);

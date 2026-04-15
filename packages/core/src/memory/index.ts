@@ -39,7 +39,10 @@ export class MemoryManager {
       this.graph = new GraphMemory(dbPath.replace('.db', '-graph.db'), this.db);
       this.init();
     } catch (err) {
-      console.warn(`[MemoryManager] Failed to initialize database: ${err}. Memory features disabled.`);
+      // Use console.error so the degraded state is never silently invisible —
+      // data loss is a serious condition that must surface clearly in logs.
+      console.error(`[MemoryManager] FATAL: Failed to initialise database at "${dbPath}": ${err}`);
+      console.error('[MemoryManager] Memory features are DISABLED — data will NOT be persisted. Call reset() when the DB is available to recover.');
       this.isDummyDB = true;
       this.db = { // Create a dummy database interface
         exec: () => [],

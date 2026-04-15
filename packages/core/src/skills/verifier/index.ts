@@ -10,7 +10,7 @@
 export { SkillVerifier, verifySkill } from './skill-verifier';
 export type { VerificationReport } from './skill-verifier';
 
-export { SkillRegistry, getRegistry, BUNDLED_SKILLS } from './skill-registry';
+export { SkillRegistry, getRegistry, BUNDLED_SKILLS, AUTO_APPROVAL_THRESHOLD } from './skill-registry';
 export type { PendingSkill } from './skill-registry';
 
 export {
