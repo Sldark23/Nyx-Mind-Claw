@@ -18,7 +18,7 @@ import dotenv from 'dotenv';
  */
 function safeJsonParse<T = unknown>(raw: string): T | null {
   try {
-    return safeJsonParse(raw) as T;
+    return JSON.parse(raw) as T;
   } catch {
     return null;
   }
