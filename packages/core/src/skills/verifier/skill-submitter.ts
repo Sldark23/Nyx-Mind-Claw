@@ -29,7 +29,8 @@ function loadSubmissions(): MarketplaceSubmissions {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(content) as MarketplaceSubmissions;
-  } catch {
+  } catch (err) {
+    console.error(`[skill-submitter] Failed to parse submissions file: ${err}`);
     return { submissions: {} };
   }
 }

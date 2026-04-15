@@ -148,37 +148,45 @@ const server = http.createServer((req, res) => {
         const page = await browser.newPage();
 
         let result;
-        switch (action) {
-          case 'navigate':
-            await page.goto(params.url, { waitUntil: 'networkidle2' });
-            result = { url: page.url(), title: await page.title() };
-            break;
+        try {
+          switch (action) {
+            case 'navigate':
+              await page.goto(params.url, { waitUntil: 'networkidle2' });
+              result = { url: page.url(), title: await page.title() };
+              break;
 
-          case 'click':
-            await page.click(params.selector);
-            result = { success: true };
-            break;
+            case 'click':
+              await page.click(params.selector);
+              result = { success: true };
+              break;
 
-          case 'fill':
-            await page.fill(params.selector, params.value);
-            result = { success: true };
-            break;
+            case 'fill':
+              await page.fill(params.selector, params.value);
+              result = { success: true };
+              break;
 
-          case 'extract':
-            const content = await page.textContent(params.selector || 'body');
-            result = { content };
-            break;
+            case 'extract':
+              const content = await page.textContent(params.selector || 'body');
+              result = { content };
+              break;
 
-          case 'screenshot':
-            const screenshot = await page.screenshot({ encoding: 'base64' });
-            result = { screenshot };
-            break;
+            case 'screenshot':
+              const screenshot = await page.screenshot({ encoding: 'base64' });
+              result = { screenshot };
+              break;
 
-          default:
-            result = { error: 'Unknown action' };
+            default:
+              result = { error: 'Unknown action' };
+          }
+        } catch (actionErr) {
+          result = { error: actionErr.message };
         }
 
-        await browser.close();
+        try {
+          await browser.close();
+        } catch {
+          // ignore close errors
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err) {
