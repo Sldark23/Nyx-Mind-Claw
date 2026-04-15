@@ -1,6 +1,14 @@
 import { ProviderFactory } from '../../llm';
 import { SkillMeta } from '../loader/types';
 
+function safeJsonParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 export class SkillRouter {
   constructor(private llm: ProviderFactory) {}
 
@@ -35,8 +43,9 @@ User input: ${userInput}`;
       const response = await this.llm.chat([{ role: 'user', content: prompt }]);
       const match = response.match(/\{.*\}/s);
       if (!match) return null;
-      const parsed = JSON.parse(match[0]);
-      return parsed.skillName || null;
+      const parsed = safeJsonParse(match[0]);
+      if (!parsed) return null;
+      return (parsed as { skillName?: string }).skillName || null;
     } catch {
       return null;
     }
