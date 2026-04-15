@@ -131,8 +131,15 @@ const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
+      let parsed;
       try {
-        const { action, params } = JSON.parse(body);
+        parsed = JSON.parse(body);
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON: ' + err.message }));
+        return;
+      }
+      const { action, params } = parsed;
 
         // Import browser-use dynamically
         const { chromium } = require('browser-use');
