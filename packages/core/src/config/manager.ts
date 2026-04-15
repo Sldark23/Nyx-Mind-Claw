@@ -9,6 +9,21 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+// ── Safe JSON parse helper ────────────────────────────────────────────────────
+
+/**
+ * Safely parses a JSON string. Returns the parsed value or null on failure.
+ * Use this instead of bare JSON.parse to avoid unhandled SyntaxError exceptions.
+ */
+function safeJsonParse<T = unknown>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+
 
 export class ConfigManager {
   private envPath: string;
@@ -101,16 +116,15 @@ export class ApprovalManager {
   private load(): ApprovalState {
     const filePath = approvalStatePath();
     if (fs.existsSync(filePath)) {
-      try {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        const parsed = JSON.parse(raw) as Partial<ApprovalState>;
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const parsed = safeJsonParse<Partial<ApprovalState>>(raw);
+      if (parsed) {
         return {
           pendingTools: parsed.pendingTools ?? [],
           approvedTools: parsed.approvedTools ?? [],
         };
-      } catch {
-        return { ...DEFAULT_APPROVAL_STATE };
       }
+      return { ...DEFAULT_APPROVAL_STATE };
     }
     return { ...DEFAULT_APPROVAL_STATE };
   }
