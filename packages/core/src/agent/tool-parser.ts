@@ -5,6 +5,21 @@
  *   2) JSON inside markdown: ```json { ... } ```
  */
 import { ToolCall } from './types';
+// ── Safe JSON parse helper ────────────────────────────────────────────────────
+
+/**
+ * Safely parses a JSON string. Returns the parsed value or null on any error.
+ * Use this instead of bare JSON.parse to avoid unhandled SyntaxError exceptions.
+ */
+function safeJsonParse<T = unknown>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+
 
 export class ToolParser {
   /**
@@ -27,19 +42,15 @@ export class ToolParser {
     const firstBrace = text.indexOf('{');
     if (firstBrace < 0) return null;
 
-    // Try JSON.parse from the first { with increasingly longer substrings
+    // Try safeJsonParse from the first { with increasingly longer substrings
     for (let end = firstBrace + 1; end <= text.length; end++) {
       const candidate = text.slice(firstBrace, end);
-      try {
-        const parsed = JSON.parse(candidate);
-        if (parsed && typeof parsed.tool === 'string' && parsed.args && typeof parsed.args === 'object') {
-          return {
-            tool: parsed.tool.trim(),
-            args: parsed.args as Record<string, unknown>,
-          };
-        }
-      } catch {
-        // keep trying
+      const parsed = safeJsonParse<{ tool?: unknown; args?: unknown }>(candidate);
+      if (parsed && typeof parsed.tool === 'string' && parsed.args && typeof parsed.args === 'object') {
+        return {
+          tool: parsed.tool.trim(),
+          args: parsed.args as Record<string, unknown>,
+        };
       }
     }
     return null;
@@ -48,22 +59,18 @@ export class ToolParser {
   private parseJSON(raw: string): ToolCall | null {
     const jsonStart = raw.indexOf('{');
     const jsonStr = jsonStart >= 0 ? raw.slice(jsonStart) : raw;
-    try {
-      const parsed = JSON.parse(jsonStr);
-      if (
-        parsed &&
-        typeof parsed.tool === 'string' &&
-        parsed.args &&
-        typeof parsed.args === 'object'
-      ) {
-        return {
-          tool: parsed.tool.trim(),
-          args: parsed.args as Record<string, unknown>,
-        };
-      }
-      return null;
-    } catch {
-      return null;
+    const parsed = safeJsonParse<{ tool?: unknown; args?: unknown }>(jsonStr);
+    if (
+      parsed &&
+      typeof parsed.tool === 'string' &&
+      parsed.args &&
+      typeof parsed.args === 'object'
+    ) {
+      return {
+        tool: parsed.tool.trim(),
+        args: parsed.args as Record<string, unknown>,
+      };
     }
+    return null;
   }
 }
