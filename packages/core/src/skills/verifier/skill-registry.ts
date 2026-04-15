@@ -3,6 +3,7 @@ import { VerificationReport } from './skill-verifier';
 import { SkillMeta } from '../loader/types';
 
 // Bundled skills that come pre-approved with nyxmind
+// Auto-approval threshold: score >= 70 (configured in SkillRegistry)
 export const BUNDLED_SKILLS = new Set<string>([
   'brain-sync',
   'proactivity',
@@ -65,8 +66,9 @@ export class SkillRegistry extends EventEmitter {
   
   /**
    * Verify a skill and register it based on verification results.
-   * Auto-approves if score >= 70 and no credential leaks.
+   * Auto-approves if skill score >= 70 and no credential leaks.
    * Otherwise adds to pending queue with reason.
+   * @param scoreThreshold - Minimum score for auto-approval (default: 70)
    */
   async verifyAndRegister(
     skillPath: string,
