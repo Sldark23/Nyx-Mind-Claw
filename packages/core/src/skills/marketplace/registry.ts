@@ -26,7 +26,7 @@ export interface MarketplaceEntry {
 
 export type Marketplace = Record<string, MarketplaceEntry>;
 
-const GITHUB_RAW = 'https://raw.githubusercontent.com/Sldark23/skills-nyxmindclaw/main';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/Sldark23/Nyx-Mind-Claw/main';
 const AUTHOR = 'nyxmind';
 const VERSION = '1.0.0';
 

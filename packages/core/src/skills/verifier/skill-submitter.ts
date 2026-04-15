@@ -52,19 +52,27 @@ function saveSubmissions(data: MarketplaceSubmissions): void {
  * @param skillMeta - Skill metadata to submit
  * @param author - 'user' if manually approved, 'agent' if auto-approved
  * @returns The submission entry
+ * @throws Error if name or description are empty
  */
 export function submitSkill(
   skillMeta: SkillMeta,
   author: 'user' | 'agent' = 'agent'
 ): MarketplaceSubmission {
+  if (!skillMeta.name || !skillMeta.name.trim()) {
+    throw new Error('Cannot submit skill: name is required');
+  }
+  if (!skillMeta.description || !skillMeta.description.trim()) {
+    throw new Error('Cannot submit skill: description is required');
+  }
+  
   const submissions = loadSubmissions();
   
   const submission: MarketplaceSubmission = {
-    name: skillMeta.name,
-    description: skillMeta.description,
+    name: skillMeta.name.trim(),
+    description: skillMeta.description.trim(),
     author,
     submittedAt: new Date().toISOString(),
-    trigger: skillMeta.trigger,
+    trigger: skillMeta.trigger?.trim(),
   };
   
   submissions.submissions[skillMeta.name] = submission;

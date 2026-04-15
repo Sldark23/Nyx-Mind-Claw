@@ -28,6 +28,7 @@ const BOOTSTRAP_VERSION = 1;
 export class MemoryManager {
   private db: Database.Database;
   private graph: GraphMemory;
+  private isDummyDB = false;
 
   constructor(private dbPath = './data/nyxmind.db') {
     const dir = path.dirname(dbPath);
@@ -39,6 +40,7 @@ export class MemoryManager {
       this.init();
     } catch (err) {
       console.warn(`[MemoryManager] Failed to initialize database: ${err}. Memory features disabled.`);
+      this.isDummyDB = true;
       this.db = { // Create a dummy database interface
         exec: () => [],
         prepare: () => ({ run: () => {}, get: () => undefined, all: () => [] }),
@@ -243,10 +245,6 @@ export class MemoryManager {
     conversationCount: number;
     messageCount: number;
   } {
-    const isDummy = (obj: unknown): boolean => {
-      return !obj || (typeof obj === 'object' && Object.keys(obj).length === 0);
-    };
-
     let conversationCount = 0;
     let messageCount = 0;
     try {
@@ -260,7 +258,7 @@ export class MemoryManager {
 
     return {
       healthy: this.isHealthy(),
-      dbKind: isDummy((this.db as unknown as Record<string, unknown>).exec) ? 'dummy' : 'real',
+      dbKind: this.isDummyDB ? 'dummy' : 'real',
       graphKind: 'real', // graph is only exposed as real when real
       dbPath: this['dbPath'] ?? 'unknown',
       conversationCount,
@@ -283,6 +281,7 @@ export class MemoryManager {
       this.db.pragma('journal_mode = WAL');
       this.graph = new GraphMemory(path.replace('.db', '-graph.db'), this.db);
       this.init();
+      this.isDummyDB = false;
     } catch (err) {
       console.warn(`[MemoryManager] reset() failed: ${err}. Manager remains in degraded state.`);
     }
@@ -337,7 +336,9 @@ export class MemoryManager {
 
   close(): void {
     this.db.close();
-    this.graph.close();
+    if (!this.isDummyDB) {
+      this.graph.close();
+    }
   }
 }
 
