@@ -31,7 +31,7 @@ export class ToolParser {
     for (let end = firstBrace + 1; end <= text.length; end++) {
       const candidate = text.slice(firstBrace, end);
       try {
-        const parsed = JSON.parse(candidate);
+        const parsed = safeJsonParse(candidate);
         if (parsed && typeof parsed.tool === 'string' && parsed.args && typeof parsed.args === 'object') {
           return {
             tool: parsed.tool.trim(),
@@ -49,7 +49,7 @@ export class ToolParser {
     const jsonStart = raw.indexOf('{');
     const jsonStr = jsonStart >= 0 ? raw.slice(jsonStart) : raw;
     try {
-      const parsed = JSON.parse(jsonStr);
+      const parsed = safeJsonParse(jsonStr);
       if (
         parsed &&
         typeof parsed.tool === 'string' &&
@@ -66,4 +66,9 @@ export class ToolParser {
       return null;
     }
   }
+}
+
+// ── Auto-added by guardian ────────────────────────────────────────────────────
+function safeJsonParse<T = any>(str: string, fallback: T): T {
+  try { return safeJsonParse(str); } catch { return fallback; }
 }
