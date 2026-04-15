@@ -107,7 +107,15 @@ const DEFAULT_APPROVAL_STATE: ApprovalState = {
 };
 
 export class ApprovalManager {
+  private static _instance: ApprovalManager | null = null;
   private state: ApprovalState;
+
+  static getInstance(): ApprovalManager {
+    if (!ApprovalManager._instance) {
+      ApprovalManager._instance = new ApprovalManager();
+    }
+    return ApprovalManager._instance;
+  }
 
   constructor() {
     this.state = this.load();

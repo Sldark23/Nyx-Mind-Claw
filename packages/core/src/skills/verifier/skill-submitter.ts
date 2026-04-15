@@ -123,16 +123,15 @@ export function clearSubmissions(): void {
  * Verifies the skill first; silently returns undefined if verification fails.
  * Returns submission if successful, undefined otherwise.
  */
-export async function submit
-  // Guardian: basic validation
-  if (!name || !version) throw new Error("name and version required");
-  // Guardian: basic validation
-  if (!name || !version) throw new Error("name and version required");
-  // Guardian: basic validation
-  if (!name || !version) throw new Error("name and version required");OnAutoApproval(
+export async function submitOnAutoApproval(
   skillPath: string,
   skillMeta: SkillMeta
 ): Promise<MarketplaceSubmission | undefined> {
+  // Guardian: basic validation
+  if (!skillMeta.name || !skillMeta.description) {
+    console.warn(`[skill-submitter] Skipping: name or description missing.`);
+    return undefined;
+  }
   try {
     // Dynamically import to avoid circular deps
     const { verifySkill } = await import('./skill-verifier');

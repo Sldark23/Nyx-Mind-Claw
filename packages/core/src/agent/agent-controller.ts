@@ -44,7 +44,7 @@ export class AgentController {
     this.memory = new MemoryManager();
     this.router = new SkillRouter(this.llm);
     this.loop = new AgentLoop({ llm: this.llm, tools: this.tools, maxIterations: fullConfig.iterations });
-    this.approvalManager = new ApprovalManager();
+    this.approvalManager = ApprovalManager.getInstance();
   }
 
   isWhitelisted(userId: string): boolean {
