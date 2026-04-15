@@ -20,9 +20,9 @@ export class ConfigManager {
   }
 
   private load(): void {
-    if (fs.existsSync(this.envPath)) {
-      const raw = dotenv.parse(fs.readFileSync(this.envPath, 'utf-8'));
-      this.values = { ...raw };
+    const result = dotenv.config({ path: this.envPath });
+    if (result.parsed) {
+      this.values = { ...result.parsed };
     }
     // env vars override .env file
     for (const key of Object.keys(process.env)) {
