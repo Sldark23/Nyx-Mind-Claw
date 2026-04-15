@@ -91,35 +91,35 @@ const DEFAULT_MARKETPLACE: Marketplace = {
 
   // === Legacy openclaw skills (still available) ===
   'brain-sync': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/brain-sync/SKILL.md',
+    url: 'https://raw.githubusercontent.com/Sldark23/Nyx-Mind-Claw/main/skills/brain-sync/SKILL.md',
     description: 'Sync notes between Obsidian vault and external services',
     author: 'openclaw',
     version: '1.0.0',
     triggers: ['sync', 'vault', 'obsidian'],
   },
   'autoresearch': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/autoresearch/SKILL.md',
+    url: 'https://raw.githubusercontent.com/Sldark23/Nyx-Mind-Claw/main/skills/autoresearch/SKILL.md',
     description: 'Deep research on any topic using web search and summarization',
     author: 'openclaw',
     version: '1.0.0',
     triggers: ['research', 'search', 'investigate'],
   },
   'proactivity': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/proactivity/SKILL.md',
+    url: 'https://raw.githubusercontent.com/Sldark23/Nyx-Mind-Claw/main/skills/proactivity/SKILL.md',
     description: 'Anticipates needs, keeps work moving, improves throughput',
     author: 'openclaw',
     version: '1.0.0',
     triggers: ['proactive', 'automate', 'improve'],
   },
   'article-builder-news': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/article-builder-news/SKILL.md',
+    url: 'https://raw.githubusercontent.com/Sldark23/Nyx-Mind-Claw/main/skills/article-builder-news/SKILL.md',
     description: 'Generate and publish news articles to WordPress',
     author: 'openclaw',
     version: '1.0.0',
     triggers: ['article', 'blog', 'news', 'wordpress'],
   },
   'humanizer': {
-    url: 'https://raw.githubusercontent.com/openclaw/skills/main/humanizer/SKILL.md',
+    url: 'https://raw.githubusercontent.com/Sldark23/Nyx-Mind-Claw/main/skills/humanizer/SKILL.md',
     description: 'Remove signs of AI-generated writing from text',
     author: 'openclaw',
     version: '1.0.0',
