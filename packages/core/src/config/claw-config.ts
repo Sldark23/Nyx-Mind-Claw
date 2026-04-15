@@ -10,6 +10,21 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+// ── Safe JSON parse helper ────────────────────────────────────────────────────
+
+/**
+ * Safely parses a JSON string. Returns the parsed value or null on any error.
+ * Use this instead of bare JSON.parse to avoid unhandled SyntaxError exceptions.
+ */
+function safeJsonParse<T = unknown>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -263,12 +278,8 @@ function findConfigPath(): string | null {
 function loadJsonConfig(): Partial<NyxMindClawConfig> | null {
   const configPath = findConfigPath();
   if (!configPath) return null;
-  try {
-    const raw = fs.readFileSync(configPath, 'utf-8');
-    return JSON.parse(raw) as Partial<NyxMindClawConfig>;
-  } catch {
-    return null;
-  }
+  const raw = fs.readFileSync(configPath, 'utf-8');
+  return safeJsonParse<Partial<NyxMindClawConfig>>(raw);
 }
 
 // ── .env loading ─────────────────────────────────────────────────────────────
