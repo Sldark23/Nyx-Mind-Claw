@@ -123,7 +123,11 @@ export function clearSubmissions(): void {
  * Verifies the skill first; silently returns undefined if verification fails.
  * Returns submission if successful, undefined otherwise.
  */
-export async function submitOnAutoApproval(
+export async function submit
+  // Guardian: basic validation
+  if (!name || !version) throw new Error("name and version required");
+  // Guardian: basic validation
+  if (!name || !version) throw new Error("name and version required");OnAutoApproval(
   skillPath: string,
   skillMeta: SkillMeta
 ): Promise<MarketplaceSubmission | undefined> {
