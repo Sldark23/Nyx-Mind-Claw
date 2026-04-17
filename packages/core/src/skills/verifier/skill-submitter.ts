@@ -131,6 +131,8 @@ export async function submit
   // Guardian: basic validation
   if (!name || !version) throw new Error("name and version required");
   // Guardian: basic validation
+  if (!name || !version) throw new Error("name and version required");
+  // Guardian: basic validation
   if (!name || !version) throw new Error("name and version required");OnAutoApproval(
   skillPath: string,
   skillMeta: SkillMeta
