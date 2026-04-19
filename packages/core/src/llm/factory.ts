@@ -56,6 +56,10 @@ export class ProviderFactory {
       case 'lmstudio': return this.chatLMStudio(messages);
       case 'azure': return this.chatAzure(messages);
       case 'dashscope': return this.chatDashScope(messages);
+      case 'replicate': return this.chatReplicate(messages);
+      case 'anyscale': return this.chatAnyscale(messages);
+      case 'novita': return this.chatNovita(messages);
+      case 'samba': return this.chatSamba(messages);
       default: return this.chatOpenAICompatible(messages);
     }
   }
@@ -397,5 +401,85 @@ export class ProviderFactory {
 
   getProvider(): Provider {
     return this.cfg.provider;
+  }
+
+  // ── Replicate (https://api.replicate.com) ───────────────────────────
+  private async chatReplicate(messages: ChatMessage[]): Promise<string> {
+    const apiKey = this.cfg.apiKey || process.env.REPLICATE_API_KEY || '';
+    if (!apiKey) throw new Error('REPLICATE_API_KEY not set');
+    const model = this.cfg.model || 'anthropic/claude-3.5-sonnet';
+    const url = 'https://api.replicate.com/v1/chat';
+
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+
+    const body = {
+      model,
+      messages: [
+        ...(system ? [{ role: 'system', content: system }] : []),
+        ...chatMsgs,
+      ],
+      temperature: 0.7,
+    };
+
+    const res = await axios.post(url, body, {
+      headers: { Authorization: `Token ${apiKey}` },
+      timeout: DEFAULT_TIMEOUT_MS,
+    });
+    return res.data?.choices?.[0]?.message?.content || '';
+  }
+
+  // ── Anyscale (https://api.anyscale.com) ───────────────────────────
+  private async chatAnyscale(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://api.anyscale.com/v1';
+    if (!this.cfg.apiKey) throw new Error('ANYSCALE_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await withTimeout(client.chat.completions.create({
+      model: this.cfg.model || 'meta-llama/Llama-3.1-70b-instruct',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    }), DEFAULT_TIMEOUT_MS);
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── Novita AI (https://api.novita.ai) ────────────────────────────
+  private async chatNovita(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://api.novita.ai/v1';
+    if (!this.cfg.apiKey) throw new Error('NOVITA_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await withTimeout(client.chat.completions.create({
+      model: this.cfg.model || 'novita/neural-chat-7b-preview',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    }), DEFAULT_TIMEOUT_MS);
+    return resp.choices[0]?.message?.content || '';
+  }
+
+  // ── SambaNova (https://api.sambanova.ai) ────────────────────────
+  private async chatSamba(messages: ChatMessage[]): Promise<string> {
+    const baseURL = this.cfg.baseUrl || 'https://api.sambanova.ai/v1';
+    if (!this.cfg.apiKey) throw new Error('SAMBA_API_KEY not set');
+    const client = new OpenAI({ apiKey: this.cfg.apiKey, baseURL });
+    const system = this.systemMsg(messages);
+    const chatMsgs = this.chatMsgs(messages);
+    const resp = await withTimeout(client.chat.completions.create({
+      model: this.cfg.model || 'samba-1',
+      messages: [
+        ...(system ? [{ role: 'system' as const, content: system }] : []),
+        ...chatMsgs,
+      ] as unknown as OpenAI.Chat.ChatCompletionMessage[],
+      temperature: 0.7,
+    }), DEFAULT_TIMEOUT_MS);
+    return resp.choices[0]?.message?.content || '';
   }
 }

@@ -30,6 +30,10 @@ export function defaultModel(provider: Provider): string {
     case 'mistral':    return 'mistral-large-latest';
     case 'perplexity': return 'sonar';
     case 'together':   return 'meta-llama/Llama-3-70b-chat-hf';
+    case 'replicate':  return 'anthropic/claude-3.5-sonnet';
+    case 'anyscale':  return 'meta-llama/Llama-3.1-70b-instruct';
+    case 'novita':    return 'novita/neural-chat-7b-preview';
+    case 'samba':    return 'samba-1';
     default:           return 'gpt-4o-mini';
   }
 }
