@@ -4,8 +4,10 @@ import { Command } from 'commander';
 import { ProviderConfig } from '@nyxmind/core';
 import { testLlmConnection } from '../../lib/llm-test';
 import { withTelemetry } from '../../lib/telemetry';
-import { PROVIDERS } from './constants';
+import { PROVIDERS, PROVIDER_MODELS, ProviderName } from './constants';
 import { buildOnboardEnvFile } from './env';
+
+const CUSTOM_MODEL_OPTION = 'Custom (enter manually)';
 
 async function ask(question: string, rl: readline.Interface, fallback: string): Promise<string> {
   const val = await rl.question(`${question} [${fallback}]: `);
@@ -52,7 +54,31 @@ export function registerOnboardCommand(program: Command): void {
           apiKey = await rl.question(`\nAPI Key for ${provider}: `);
         }
 
-        const model = await rl.question('Model (Enter for default): ');
+        // ── Model ─────────────────────────────────────────────────
+        console.log('\nModel:');
+        const models = PROVIDER_MODELS[provider as ProviderName] ?? [];
+        const modelOptions = [...models, CUSTOM_MODEL_OPTION];
+        modelOptions.forEach((m, i) => console.log(`  ${i + 1}) ${m}`));
+
+        const modelChoice = await rl.question('\nModel number: ');
+        let model: string;
+        const modelIdx = parseInt(modelChoice.trim(), 10) - 1;
+
+        if (!modelChoice.trim()) {
+          // Enter pressed with no choice — use first model (most recommended)
+          model = models[0] ?? '';
+        } else if (modelIdx >= 0 && modelIdx < models.length) {
+          // Selected from list
+          model = models[modelIdx];
+        } else {
+          // Out of range or "Custom" selected — fall back to first or prompt
+          if (modelIdx === modelOptions.length - 1) {
+            model = await rl.question('Enter custom model name: ');
+          } else {
+            model = models[0] ?? '';
+          }
+        }
+
         const baseUrl = await rl.question(`Base URL (Enter for ${provider} default): `);
 
         process.stdout.write('\n🔌 Testing LLM connection...\n');
