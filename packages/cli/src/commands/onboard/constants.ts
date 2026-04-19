@@ -2,6 +2,7 @@ export const PROVIDERS = [
   'openai', 'anthropic', 'groq', 'grok', 'minimax',
   'deepseek', 'cohere', 'mistral', 'perplexity',
   'together', 'ollama', 'ollama-cloud', 'gemini',
+  'fireworks', 'novita',
 ] as const;
 
 export type ProviderName = typeof PROVIDERS[number];
@@ -81,6 +82,23 @@ export const PROVIDER_MODELS: Record<ProviderName, string[]> = {
     'mistral',
     'codellama',
     'phi',
+    'qwen2.5',
+    'deepseek-v3',
+    'wizardlm2',
+  ],
+  fireworks: [
+    'fireworks-ai/fw-llama-3-3-70b-instruct',
+    'fireworks-ai/fw-llama-3-1-405b-instruct',
+    'fireworks-ai/fw-llama-3-1-70b-instruct',
+    'fireworks-ai/fw-llama-3-2-90b-instruct',
+    'fireworks-ai/llama-3-2-vision-90b',
+  ],
+  novita: [
+    'novita/llama-3-3-70b-instruct',
+    'novita/llama-3-1-405b-instruct',
+    'novita/llama-3-1-70b-instruct',
+    'novita/deepseek-v3-7b',
+    'novita/codellama-70b-instruct',
   ],
   gemini: [
     'gemini-2.0-flash-exp',

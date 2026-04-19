@@ -11,6 +11,8 @@ export function defaultBaseUrl(provider: Provider): string | undefined {
     case 'perplexity': return 'https://api.perplexity.ai';
     case 'together':   return 'https://api.together.xyz/v1';
     case 'ollama-cloud': return 'https://ollama.com/v1';
+    case 'fireworks': return 'https://api.fireworks.ai/inference/v1';
+    case 'novita':    return 'https://api.novita.ai/v1';
     default:           return undefined;
   }
 }
